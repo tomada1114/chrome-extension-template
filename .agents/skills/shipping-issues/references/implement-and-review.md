@@ -36,7 +36,7 @@ that one extra call is what stops a repo that cannot carry a worktree from costi
 dependency installs instead of one. Judging the four `baseline:` outcomes is yours, not
 the script's ([all four](recovery.md#a-red-baseline); `verdict:` semantics
 [here](worktree-parallelism.md#viability-gate)). Read exit codes and log tails, never
-full output; what the smoke run turns up goes to step 8.
+full output; what the baseline run turns up goes to step 8.
 
 ## Handing off the implementation
 

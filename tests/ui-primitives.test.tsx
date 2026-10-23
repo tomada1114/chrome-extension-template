@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 
 // The component copied in from the shadcn/ui registry, and the `cn` every
 // such component calls. What is asserted is the wiring, not the styling: that
-// the `@/` alias resolves under Vitest as well as under `tsc` and the Next.js
+// the `@/` alias resolves under Vitest as well as under `tsc` and the WXT
 // build (this file imports through it on purpose), and that a caller's own
 // `className` wins over the component's default, which is the one behaviour
 // of `cn` a component's appearance depends on. No class list is pinned beyond

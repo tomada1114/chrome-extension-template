@@ -2,12 +2,13 @@
 name: updating-docs
 description: >
   Decides whether a change owes a documentation update and which surface it lands on:
-  README.md, CONTRIBUTING.md, AGENTS.md, a skill under .agents/skills/, .env.example, or
-  a TSDoc comment on a published symbol. Use when triaging whether a pull request needs
-  a document changed at all, when a rule or an architecture boundary moved and it is
-  unclear which file owns it, when one change must move two files at once, when the
-  quick start or the setup steps drifted, or when deciding that an internal refactor
-  needs no documentation change.
+  README.md, CONTRIBUTING.md, AGENTS.md, a document under docs/ such as the store
+  listing or privacy policy, a skill under .agents/skills/, or a TSDoc comment on a
+  published symbol. Use when triaging whether a pull request needs a document changed at
+  all, when a rule or an architecture boundary moved and it is unclear which file owns
+  it, when one change must move two files at once, when the quick start or the setup
+  steps drifted, or when deciding that an internal refactor needs no documentation
+  change.
 ---
 
 # Updating Documentation
@@ -15,8 +16,9 @@ description: >
 **Owns:** whether a change owes a documentation update, and which surface it lands on.
 **Does not own:** what a TSDoc comment for a given symbol actually says
 (`writing-typescript`); how a skill is authored and mirrored (`authoring-skills`); what
-goes into a message catalog (`localizing-ui`); the procedure behind the README's
-"Starting a new app from this template" section (`starting-an-app`).
+goes into a message catalog (`localizing-ui`); what the store listing and the privacy
+policy under `docs/` say (`releasing-to-stores`); the procedure behind the README's
+"Starting a new extension from this template" section (`starting-an-app`).
 
 ## Decide on observability, not location
 
@@ -37,7 +39,8 @@ repository stopped being one.
 answer it rather than deferring back:
 
 - `README.md` changes when the first ten minutes with a checkout change — the quick
-  start commands, what the one API route takes or answers, or where a new app begins.
+  start commands, what the sample extension does, how to load or test it, or where a new
+  extension begins.
 - `CONTRIBUTING.md` changes when setup, the toolchain versions, the dependency cooldown,
   or the pull request process changes.
 - Neither changes for a refactor, a test, a gate or a rule that AGENTS.md owns, or an
@@ -49,24 +52,27 @@ Each surface has one job; do not blur them, and do not let one grow a second cop
 another's content.
 
 - `README.md` — the tour: what this template is, how to run it, and where copying it
-  into a new app starts. It links to `AGENTS.md` and `CONTRIBUTING.md` instead of
+  into a new extension starts. It links to `AGENTS.md` and `CONTRIBUTING.md` instead of
   repeating them, so it must not grow a second command index or a second rule list.
 - `AGENTS.md` — the agent-facing guide: the architecture, the zone boundaries, the Quick
   reference command index, the rules, and the Skills routing table. A changed boundary,
   gate rule, or `pnpm` command lands here.
 - `CONTRIBUTING.md` — local setup, the dependency cooldown, and the pull request
-  process. Nothing here is published, so it describes no release step.
+  process. The store release is `releasing-to-stores`', not a contributor step.
 - `.agents/skills/<name>/SKILL.md` — the conventions of one kind of change, loaded on
   demand. `authoring-skills` owns how one is written, mirrored, and checked.
-- `.env.example` — every environment name the process reads, shipped with an empty
-  value. It is the file to open when the question is what exists.
+- `docs/` — the documents a store and a user read about the extension: the store listing
+  and the privacy policy the README links. They describe what the extension does with a
+  user's data, so a change to a permission, to what is stored, or to where data is sent
+  owes them an edit. `releasing-to-stores` owns their content.
 - TSDoc in `src/**` — a published symbol's contract. An interface several
   implementations share is where this matters most: it is what an implementation author
   reads instead of reading the implementation that happens to ship. `writing-typescript`
   owns what the comment says; this skill owns only whether one is owed.
 
-There is no `CHANGELOG.md` and no `docs/` tree here. A pull request explains itself in a
-line or two, and `.github/PULL_REQUEST_TEMPLATE.md` owns that — do not reinstate either.
+There is no `CHANGELOG.md`. A pull request explains itself in a line or two, and
+`.github/PULL_REQUEST_TEMPLATE.md` owns that — do not add one, and do not grow `docs/`
+into a second home for what AGENTS.md or a skill already says.
 
 ## A skill is documentation; editing one is usually not a doc change
 
@@ -91,8 +97,8 @@ says "review", nothing catches it but the reader of the diff.
 | ---------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------- |
 | A skill added, renamed or deleted                          | Its row in AGENTS.md's Skills table                            | `tests/skills-frontmatter.test.ts` |
 | A hand-run `package.json` script added, renamed or removed | Its line in AGENTS.md's Quick reference, in the matching block | review                             |
-| An environment variable `src/server/env.ts` reads          | `.env.example`, with an empty value                            | `tests/server-env.test.ts`         |
-| A locale in `src/i18n/locales.ts`                          | A catalog under `messages/` holding every key `en.json` has    | `tests/messages.test.ts`           |
+| A catalog added under `src/locales/`                       | Every key `src/locales/en.json` has, each a non-empty string   | `tests/locales.test.ts`            |
+| A permission, or what the extension stores or sends        | The privacy disclosures under `docs/`                          | review                             |
 | A gate, or the narrowest check for one kind of change      | Its row in AGENTS.md's "Validating a change" table             | review                             |
 
 **BACKGROUND:** `smart-commit` for the pairs that must share a commit rather than only a
@@ -101,12 +107,12 @@ script reaches more than two files; **REQUIRED:** `writing-repo-scripts` for tha
 
 ## The checklist owns the mechanical items
 
-`.github/PULL_REQUEST_TEMPLATE.md` already carries the two items that fire most often —
-the one for a new environment variable and the one for a new UI string. Work from the
-template; the environment pair above is the one item this skill repeats, for the test
-behind it, and nothing else should restate them. `localizing-ui` owns the catalog
-procedure behind the second of them, and AGENTS.md's Conventions owns the English rule
-and the one exception the catalogs get.
+`.github/PULL_REQUEST_TEMPLATE.md` already carries the items that fire most often — a
+new UI string, a permission change, a stored key's shape. Work from the template; the
+catalog pair above is the one item this skill repeats, for the test behind it, and
+nothing else should restate them. `localizing-ui` owns the catalog procedure,
+`changing-permissions` and `managing-storage` the other two, and AGENTS.md's Conventions
+owns the English rule and the one exception the catalogs get.
 
 ## What belongs in prose
 
@@ -123,7 +129,7 @@ promising it would be one more thing to keep true, and a document that claims a 
 does not have is worse than one that stays silent.
 
 That leaves a discipline instead. Keep a fenced example to something a reader can check
-by eye — a command, a request body, a path. When the example has to be runnable, put the
+by eye — a command, a message name, a path. When the example has to be runnable, put the
 runnable thing in `src/`, where a test already calls it, and have the document point at
 it rather than copy it.
 

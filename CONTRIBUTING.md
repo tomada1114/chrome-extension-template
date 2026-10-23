@@ -19,11 +19,10 @@ Use the Node 24 version in `.node-version`; the running version must satisfy
 intentional hard error, and nothing in this repository runs on another Node, so there is
 no occasion to reach for the `--config.runtime-on-fail=ignore` override.
 
-Keep `@types/node` on the runtime's major and minor versions, with a patch-only `~`
+Keep `@types/node` on the runtime's major, at or below its minor, with a patch-only `~`
 range. The runtime contract tests check that alignment against both `.node-version` and
-the `devEngines` minimum. Raise the runtime and declaration minor together; Dependabot
-leaves major and minor upgrades for that deliberate change while continuing patch
-updates.
+the `devEngines` minimum. `@types/node` trails Node's own security releases, so
+`.node-version` may move ahead of it by a minor; it must never fall behind.
 
 The install writes the Git hooks too, and nothing above has to ask for it: `lefthook`
 ships its own `postinstall`, which `pnpm-workspace.yaml` allowlists, so every non-CI
@@ -45,15 +44,24 @@ an on-screen one — it leaves the hook installed and this check green while dis
 gate at every commit; AGENTS.md's "Enforcement layers" explains why nothing here catches
 it.
 
-For local page and API work, follow the [README quick start](README.md#quick-start),
-including the example API call that checks the setup.
+The install also runs `wxt prepare`, which generates `.wxt/` — the typed catalog module
+and ambient types the type checker reads. Run `pnpm exec wxt prepare` again after adding
+a locale or a catalog key if your editor still reports it missing.
+
+For working on the extension itself, follow the
+[README quick start](README.md#quick-start). Install Playwright's Chromium once per
+machine before the browser tests:
+
+```sh
+pnpm e2e:browsers
+```
 
 Useful focused commands are `pnpm check:source`, `pnpm test`, and `pnpm test:coverage`.
-Neither of the last two is the whole suite: both filter out the `smoke` project, which
-serves the output of `pnpm build` with `next start` and asserts over HTTP, and which
-refuses to run against a missing or stale build rather than reporting on one. Run that
-one with `pnpm build && pnpm run test:smoke`; `pnpm check:source` runs both halves, in
-that order.
+Neither of the last two is the whole suite: both leave out the two suites that read a
+build — `pnpm test:manifest` and `pnpm test:e2e` — which refuse to run against a missing
+build rather than building one themselves. Run them with
+`pnpm build && pnpm test:manifest && pnpm test:e2e`; `pnpm check:source` runs every
+half, in that order.
 
 ## Dependency cooldown
 
@@ -68,9 +76,12 @@ ages out, and never use a broad package-only or wildcard exclusion.
 Create a feature branch, keep commits focused, and use a Conventional Commit PR title.
 Run `pnpm check:source` before requesting review.
 
-Nothing here is published, so a change is not sized by a version number. What decides
-whether a pull request also has to touch a test or a document is what the change is
-observable as: behavior a caller outside the process can see needs its test updated in
-the same pull request, and a rule that changed needs the file that owns that rule
-changed with it. AGENTS.md says which surfaces are observable and which are private; the
-`updating-docs` skill says when a change reaches `README.md` or this file.
+A change is not sized by a version number until it is released; `releasing-to-stores`
+owns the bump. What decides whether a pull request also has to touch a test or a
+document is what the change is observable as: a stored key, a message, a permission or a
+user-visible string outlives the release that changed it, so it needs its test (and, for
+a stored shape, its migration) in the same pull request, and a rule that changed needs
+the file that owns that rule changed with it. Call out any change to the manifest's
+permissions or match patterns in the pull request description — it changes what every
+user is asked to accept. AGENTS.md says which surfaces are observable and which are
+private; the `updating-docs` skill says when a change reaches `README.md` or this file.

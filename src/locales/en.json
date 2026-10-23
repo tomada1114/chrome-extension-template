@@ -1,0 +1,16 @@
+{
+  "extName": "Chrome Extension Template",
+  "extDescription": "A Manifest V3 extension skeleton.",
+  "popup": {
+    "heading": "Clicks",
+    "increment": "Count a click",
+    "openOptions": "Settings"
+  },
+  "options": {
+    "heading": "Settings",
+    "showBadge": "Show the count on the toolbar icon"
+  },
+  "content": {
+    "marker": "Chrome Extension Template is running on this page"
+  }
+}

@@ -90,13 +90,8 @@ function importsPackage(specifier: string, pkg: string): boolean {
   return specifier === pkg || specifier.startsWith(`${pkg}/`);
 }
 
-/** Whether `specifier` reaches a module inside the AI layer's adapter tree. */
-function importsAdapter(module: string, specifier: string): boolean {
-  return resolveWithin(module, specifier)?.startsWith("src/ai/adapters/") === true;
-}
-
 interface Module {
-  /** Repo-relative POSIX path, e.g. `src/server/handlers/ask.ts`. */
+  /** Repo-relative POSIX path, e.g. `src/background/index.ts`. */
   readonly file: string;
   readonly specifiers: readonly string[];
 }
@@ -121,15 +116,15 @@ function modulesIn(...zones: readonly string[]): Module[] {
 // with it. Every case that could silence it is here: a specifier inside a
 // block comment, one inside a line comment, and one inside an ordinary string.
 const SCANNER_CONTROL = `
-import defaultExport from "next";
-import { named } from "../core/result";
-import "./globals.css";
+import defaultExport from "react";
+import { named } from "../core/counter";
+import "../../assets/globals.css";
 import type { OnlyAType } from "@radix-ui/react-slot";
-import { aliased } from "@/core/result";
+import { aliased } from "@/core/counter";
 export { re } from "./errors";
-const lazy = await import("../ai/index");
+const lazy = await import("../platform/storage");
 const legacy = require("node:fs");
-const message = "imported from ../ai/adapters/fake/index by hand";
+const message = "imported from ../background/index by hand";
 // import { commented } from "./line-comment-only";
 /* import { blocked } from "./block-comment-only"; */
 `;
@@ -141,44 +136,45 @@ const message = "imported from ../ai/adapters/fake/index by hand";
  * A named subset rather than the whole tree: enumerating every module made the
  * suite fail on each legal new file, which teaches its reader to edit the
  * expectation. Each entry earns its place — three directories deep (the
- * recursion), a `.tsx` inside a bracketed segment (the extension filter and the
- * directory name), a zone holding exactly one module, a file at the root of
- * `src/`, and a nested module in the zone the surface rules are about. What the
- * exhaustive list was really standing in for — a scan that quietly found
- * nothing — is asserted directly by this and by the zone-coverage case below.
+ * recursion), a `.tsx` beside an `index.html` (the extension filter), an
+ * entrypoint at the top of its tree, and one module in each zone the rules
+ * below are about.
  */
 const SCAN_ANCHORS = [
-  "src/ai/adapters/fake/index.ts",
-  "src/app/[locale]/page.tsx",
-  "src/core/result.ts",
-  "src/proxy.ts",
-  "src/server/handlers/ask.ts",
+  "src/background/index.ts",
+  "src/components/hooks/use-stored-value.ts",
+  "src/content/marker.ts",
+  "src/core/counter.ts",
+  "src/entrypoints/background.ts",
+  "src/entrypoints/popup/main.tsx",
+  "src/platform/storage.ts",
 ];
 
 describe("the import scanner the zone assertions run on", () => {
   it("finds every spelling of an import and nothing that only looks like one", () => {
     expect(importSpecifiers(SCANNER_CONTROL)).toStrictEqual([
-      "next",
-      "../core/result",
-      "./globals.css",
+      "react",
+      "../core/counter",
+      "../../assets/globals.css",
       "@radix-ui/react-slot",
-      "@/core/result",
+      "@/core/counter",
       "./errors",
-      "../ai/index",
+      "../platform/storage",
       "node:fs",
     ]);
   });
 
   it.each([
     [
-      "src/ai/adapters/fake/index.ts",
-      ["zod", "../../../core/result", "../../errors", "../../port", "../../validation"],
+      "src/background/index.ts",
+      [
+        "../core/counter",
+        "../platform/badge",
+        "../platform/messaging",
+        "../platform/storage",
+      ],
     ],
-    [
-      "src/server/handlers/ask.ts",
-      ["node:crypto", "zod", "../../ai/index", "../../i18n/locales", "../http"],
-    ],
-    ["src/app/api/ask/route.ts", ["../../../server/composition"]],
+    ["src/entrypoints/background.ts", ["wxt/utils/define-background", "../background"]],
     [
       "src/components/ui/button.tsx",
       [
@@ -200,38 +196,36 @@ describe("the import scanner the zone assertions run on", () => {
   });
 
   // `arrayContaining` above only proves presence: it would still pass if
-  // `modulesUnder`'s `/\.tsx?$/` filter were dropped and every `.css` or
-  // binary file under `src/` joined `sourceModules` too. This is the
-  // assertion the old exhaustive `toStrictEqual` list stood in for — that the
-  // filter actually excludes something — asserted directly instead of by
-  // enumerating every file the walk must return.
+  // `modulesUnder`'s `/\.tsx?$/` filter were dropped and every `.css`, `.html`
+  // or `.json` file under `src/` joined `sourceModules` too.
   it("returns nothing but .ts and .tsx files", () => {
     expect(sourceModules.every((module) => /\.tsx?$/.test(module.file))).toBe(true);
   });
 
   it("resolves a relative specifier to the module it names", () => {
-    expect(resolveWithin("src/server/handlers/ask.ts", "../../ai/index")).toBe(
-      "src/ai/index",
+    expect(resolveWithin("src/background/index.ts", "../platform/storage")).toBe(
+      "src/platform/storage",
     );
-    expect(resolveWithin("src/ai/port.ts", "./adapters/fake/index")).toBe(
-      "src/ai/adapters/fake/index",
-    );
-    expect(resolveWithin("src/core/result.ts", "next")).toBeUndefined();
+    expect(
+      resolveWithin("src/entrypoints/popup/main.tsx", "../../components/count-panel"),
+    ).toBe("src/components/count-panel");
+    expect(resolveWithin("src/core/counter.ts", "react")).toBeUndefined();
   });
 
   it("resolves an @/ specifier against src/, from any depth, and no package name", () => {
     expect(
       resolveWithin("src/components/ui/button.tsx", "@/components/lib/utils"),
     ).toBe("src/components/lib/utils");
-    expect(resolveWithin("src/app/[locale]/page.tsx", "@/ai/index")).toBe(
-      "src/ai/index",
-    );
     // The whole point of the `@/` branch: the same specifier resolves to the
     // same module whatever file names it, which a `../` one cannot do.
-    expect(resolveWithin("src/core/result.ts", "@/ai/index")).toBe("src/ai/index");
+    expect(resolveWithin("src/core/counter.ts", "@/platform/storage")).toBe(
+      "src/platform/storage",
+    );
     // A scoped package is `@scope/name` and an empty scope is not legal, so
     // nothing a registry publishes can be mistaken for an aliased path.
-    expect(resolveWithin("src/core/result.ts", "@radix-ui/react-slot")).toBeUndefined();
+    expect(
+      resolveWithin("src/core/counter.ts", "@radix-ui/react-slot"),
+    ).toBeUndefined();
   });
 });
 
@@ -241,40 +235,49 @@ describe("the import scanner the zone assertions run on", () => {
  * Every zone under `src/`, and the zones a module in it may not import.
  *
  * @remarks
- * AGENTS.md's `app → server → ai → core` written as a table, with
- * `app → components → core` beside it and `i18n` the leaf the page tree, the
- * components and the handlers read. A zone added to `src/` has to be
- * given a row here before this suite passes, which is the review the table
- * exists to force. `eslint.config.mjs` states the same edges as
- * `no-restricted-imports` groups; the two layers are checked independently, so
- * a rule deleted there still fails here.
+ * AGENTS.md's import order written as a table: `entrypoints` on top,
+ * `background` and `content` → `platform` → `core`, and `components` → `core`
+ * beside them. A zone added to `src/` has to be given a row here before this
+ * suite passes, which is the review the table exists to force.
+ * `eslint.config.mjs` states the same edges as `no-restricted-imports` groups;
+ * the two layers are checked independently, so a rule deleted there still
+ * fails here.
  *
- * `src/components` is named in the other rows as well as carrying its own: a
- * boundary only one side states is one a single edit removes, so the zones
- * below it name it and it names them.
+ * `src/assets` and `src/locales` hold a stylesheet and the catalogs, no
+ * modules, so their rows are empty and exist only so the zone list below is
+ * complete.
  */
 const FORBIDDEN_ZONE_IMPORTS: Readonly<Record<string, readonly string[]>> = {
-  "src/ai": ["src/app", "src/components", "src/i18n", "src/server"],
-  "src/app": [],
-  "src/components": ["src/ai", "src/app", "src/server"],
-  "src/core": ["src/ai", "src/app", "src/components", "src/i18n", "src/server"],
-  "src/i18n": ["src/ai", "src/app", "src/components", "src/server"],
-  "src/server": ["src/app", "src/components"],
+  "src/assets": [],
+  "src/background": ["src/components", "src/content", "src/entrypoints"],
+  "src/components": [
+    "src/background",
+    "src/content",
+    "src/entrypoints",
+    "src/platform",
+  ],
+  "src/content": ["src/background", "src/components", "src/entrypoints"],
+  "src/core": [
+    "src/background",
+    "src/components",
+    "src/content",
+    "src/entrypoints",
+    "src/platform",
+  ],
+  "src/entrypoints": [],
+  "src/locales": [],
+  "src/platform": [
+    "src/background",
+    "src/components",
+    "src/content",
+    "src/entrypoints",
+  ],
 };
 
-/** The AI layer's whole surface, as a repo-relative module. */
-const AI_SURFACE = "src/ai/index";
-
-/**
- * The only two spellings of that surface a caller outside the layer may use.
- *
- * @remarks
- * Derived from {@link AI_SURFACE} rather than typed again: the bare directory
- * import resolves to the same module, and `eslint.config.mjs`'s
- * `AI_LAYER_PRIVATE` leaves both alone, so the two layers have to agree on
- * exactly this pair.
- */
-const AI_SURFACE_MODULES = [path.posix.dirname(AI_SURFACE), AI_SURFACE];
+/** Zones that hold modules, which the coverage case below insists it saw. */
+const MODULE_ZONES = Object.keys(FORBIDDEN_ZONE_IMPORTS).filter(
+  (zone) => zone !== "src/assets" && zone !== "src/locales",
+);
 
 /** Whether `resolved` is `zone` itself or a module inside it. */
 function inZone(resolved: string, zone: string): boolean {
@@ -306,34 +309,21 @@ function crossZoneOffenders(modules: readonly Module[]): string[] {
   });
 }
 
-/** The same, for an AI-layer import that is not one of its surface spellings. */
-function aiLayerBypasses(modules: readonly Module[]): string[] {
+/** `"<file>: <specifier>"` for every import of `modules` reaching one of `packages`. */
+function packageOffenders(
+  modules: readonly Module[],
+  packages: readonly string[],
+): string[] {
   return modules.flatMap((module) =>
     module.specifiers
-      .filter((specifier) => {
-        const resolved = resolveWithin(module.file, specifier);
-        return (
-          resolved !== undefined &&
-          inZone(resolved, path.posix.dirname(AI_SURFACE)) &&
-          !AI_SURFACE_MODULES.includes(resolved)
-        );
-      })
+      .filter((specifier) => packages.some((pkg) => importsPackage(specifier, pkg)))
       .map((specifier) => `${module.file}: ${specifier}`),
   );
 }
 
-/** `"<file>: <specifier>"` for every import of `modules` reaching `pkg`. */
-function packageOffenders(modules: readonly Module[], pkg: string): string[] {
-  return modules.flatMap((module) =>
-    module.specifiers
-      .filter((specifier) => importsPackage(specifier, pkg))
-      .map((specifier) => `${module.file}: ${specifier}`),
-  );
-}
-
-describe("src/ imports run one way, app → server → ai → core and app → components → core", () => {
-  it("reaches every zone the table names", () => {
-    const unscanned = Object.keys(FORBIDDEN_ZONE_IMPORTS).filter(
+describe("src/ imports run one way: entrypoints on top, then background and content → platform → core, components → core", () => {
+  it("reaches every zone that holds modules", () => {
+    const unscanned = MODULE_ZONES.filter(
       (zone) => !sourceModules.some((module) => inZone(module.file, zone)),
     );
     expect(unscanned).toStrictEqual([]);
@@ -347,11 +337,11 @@ describe("src/ imports run one way, app → server → ai → core and app → c
     expect(zones).toStrictEqual(Object.keys(FORBIDDEN_ZONE_IMPORTS).sort());
   });
 
-  it("keeps only the declared framework entry points at the root of src/", () => {
+  it("keeps no module at the root of src/, where no zone rule reaches it", () => {
     const atRoot = sourceModules
       .map((module) => module.file)
       .filter((file) => file.split("/").length === 2);
-    expect(atRoot).toStrictEqual(["src/instrumentation.ts", "src/proxy.ts"]);
+    expect(atRoot).toStrictEqual([]);
   });
 
   it.each(Object.entries(FORBIDDEN_ZONE_IMPORTS))(
@@ -365,10 +355,10 @@ describe("src/ imports run one way, app → server → ai → core and app → c
     const offenders = crossZoneOffenders([
       {
         file: "src/core/probe.ts",
-        specifiers: ["../server/env", "./result", "next"],
+        specifiers: ["../platform/storage", "./counter", "react"],
       },
     ]);
-    expect(offenders).toStrictEqual(["src/core/probe.ts: ../server/env"]);
+    expect(offenders).toStrictEqual(["src/core/probe.ts: ../platform/storage"]);
   });
 
   // The same control for the spelling the alias made possible. Without the
@@ -379,306 +369,92 @@ describe("src/ imports run one way, app → server → ai → core and app → c
       {
         file: "src/components/probe.tsx",
         specifiers: [
-          "@/server/env",
-          "@/core/result",
+          "@/platform/storage",
+          "@/core/counter",
           "@/components/lib/utils",
           "react",
         ],
       },
     ]);
-    expect(offenders).toStrictEqual(["src/components/probe.tsx: @/server/env"]);
+    expect(offenders).toStrictEqual(["src/components/probe.tsx: @/platform/storage"]);
   });
 });
 
-describe("src/core/ is framework-free", () => {
-  // The zone holds the vocabulary the other three are written in. A framework
-  // import here makes that vocabulary un-reusable and un-testable without the
-  // thing it imported.
-  const forbidden = ["next", "react", "react-dom"];
+/** Every package that reaches a browser or extension API. */
+const BROWSER_APIS = [
+  "wxt",
+  "@wxt-dev",
+  "@webext-core",
+  "#i18n",
+  "webextension-polyfill",
+];
 
-  it.each(forbidden)("imports no %s", (pkg) => {
-    expect(packageOffenders(modulesIn("src/core"), pkg)).toStrictEqual([]);
-  });
-});
+/** React and the libraries the components are built from. */
+const UI_LIBRARIES = ["react", "react-dom", "@radix-ui"];
 
-describe("src/components/ is UI: no server-only", () => {
-  // `server-only` throws on import outside a React Server Components graph, so
-  // a component carrying it can never be a Client Component — which is the one
-  // thing this zone exists to be able to become.
-  it.each(["server-only"])("imports no %s", (pkg) => {
-    expect(packageOffenders(modulesIn("src/components"), pkg)).toStrictEqual([]);
-  });
-});
-
-describe("src/app/ and src/server/ reach the AI layer only through src/ai/index.ts", () => {
-  it("names no module inside the layer but its surface", () => {
-    expect(aiLayerBypasses(modulesIn("src/app", "src/server"))).toStrictEqual([]);
-  });
-
-  // The check above passes just as well if nothing under src/app/ or
-  // src/server/ imports the AI layer at all — "names no module but its
-  // surface" is vacuously true of an empty set. This asserts the real tree
-  // actually exercises the surface, without pinning which file does: a
-  // minimum count survives a legal refactor that moves the call between
-  // src/server/composition.ts and src/server/handlers/ask.ts, where an
-  // exhaustive file list would not.
-  it("has at least one real src/app or src/server module reaching the AI surface", () => {
-    const surfaceImporters = modulesIn("src/app", "src/server").filter((module) =>
-      module.specifiers.some((specifier) => {
-        const resolved = resolveWithin(module.file, specifier);
-        return resolved !== undefined && AI_SURFACE_MODULES.includes(resolved);
-      }),
-    );
-    expect(surfaceImporters.length).toBeGreaterThan(0);
+/**
+ * `importsPackage` treats a scope as a package, so `@wxt-dev` matches every
+ * `@wxt-dev/…` subpath and the lists above stay one entry per vendor.
+ */
+describe("each zone names only the libraries its context has", () => {
+  it.each([
+    ["src/core", [...BROWSER_APIS, ...UI_LIBRARIES]],
+    ["src/platform", UI_LIBRARIES],
+    ["src/background", UI_LIBRARIES],
+    ["src/content", UI_LIBRARIES],
+    ["src/components", BROWSER_APIS],
+  ])("%s imports none of %p", (zone, packages) => {
+    expect(packageOffenders(modulesIn(zone), packages)).toStrictEqual([]);
   });
 
-  it("reports a bypass when there is one, so the check above is not vacuous", () => {
-    // Both legal spellings and both private ones in one module: this is what
-    // pins the allow-list, and what keeps it agreeing with `AI_LAYER_PRIVATE`.
-    const offenders = aiLayerBypasses([
-      {
-        file: "src/server/probe.ts",
-        specifiers: [
-          "../ai/index",
-          "../ai",
-          "../ai/errors",
-          "../ai/adapters/fake/index",
-          "@/ai/index",
-          "@/ai/errors",
+  it("reports a browser API in a component, so the rows above are not vacuous", () => {
+    expect(
+      packageOffenders(
+        [
+          {
+            file: "src/components/probe.tsx",
+            specifiers: ["wxt/browser", "@wxt-dev/storage", "react"],
+          },
         ],
-      },
-    ]);
-    expect(offenders.sort()).toStrictEqual([
-      "src/server/probe.ts: ../ai/adapters/fake/index",
-      "src/server/probe.ts: ../ai/errors",
-      "src/server/probe.ts: @/ai/errors",
+        BROWSER_APIS,
+      ),
+    ).toStrictEqual([
+      "src/components/probe.tsx: wxt/browser",
+      "src/components/probe.tsx: @wxt-dev/storage",
     ]);
   });
 });
 
-describe("src/ai/port.ts does not know its adapters", () => {
-  it("imports nothing from src/ai/adapters/", () => {
-    const port = sourceModules.find((module) => module.file === "src/ai/port.ts");
-    expect(port).toBeDefined();
-    const offenders = (port?.specifiers ?? []).filter((specifier) =>
-      importsAdapter("src/ai/port.ts", specifier),
+describe("a screen reaches the service worker by message, never by import", () => {
+  // The popup and options pages live one directory down, under
+  // src/entrypoints/<name>/; the two top-level files are the worker's and the
+  // content script's own entrypoints, which do import their zones.
+  const screens = sourceModules.filter(
+    (module) =>
+      module.file.startsWith("src/entrypoints/") && module.file.split("/").length > 3,
+  );
+
+  it("finds the screens it is about", () => {
+    expect(screens.map((module) => module.file)).toEqual(
+      expect.arrayContaining([
+        "src/entrypoints/popup/main.tsx",
+        "src/entrypoints/options/main.tsx",
+      ]),
+    );
+  });
+
+  it("leaves every screen importing nothing from src/background or src/content", () => {
+    const offenders = screens.flatMap((module) =>
+      module.specifiers
+        .filter((specifier) => {
+          const resolved = resolveWithin(module.file, specifier);
+          return (
+            resolved !== undefined &&
+            (inZone(resolved, "src/background") || inZone(resolved, "src/content"))
+          );
+        })
+        .map((specifier) => `${module.file}: ${specifier}`),
     );
     expect(offenders).toStrictEqual([]);
-  });
-});
-
-// --- the composition root's access gate --------------------------------------
-
-// The shared adapter policy and `src/server/composition.ts` have to agree:
-// `ADAPTER_BILLS_A_PROVIDER`, which is what makes `readServerEnv` demand
-// `API_ACCESS_KEY`, and the adapter it wires a few lines below. Nothing but the
-// TSDoc on both held them together, so swapping the adapter could leave
-// `POST /api/ask` open and billed. The two cannot be moved next to each other:
-// the environment read has to sit between them, because a provider adapter is
-// handed `env.OPENROUTER_API_KEY`. So the agreement is asserted here instead.
-//
-// This lives in this file rather than beside the handler tests for two reasons.
-// It reads a source file off disk with the scanner above, which is what this
-// suite is and what puts it in `vitest.config.ts`'s `automation` project. And
-// the zone edges asserted above are what make a name-based read sound at all:
-// `src/server/` may not import an adapter directly, so `src/ai/index.ts` is the
-// only door a model call can come through, and
-// which names composition.ts calls from that door is a real signal rather than
-// a guess.
-
-const COMPOSITION_ROOT = "src/server/composition.ts";
-const ADAPTER_POLICY = "src/server/adapter-policy";
-
-/**
- * Names `src/ai/index.ts` publishes that the composition root can call while
- * an answer still costs nobody anything.
- *
- * @remarks
- * The list is what makes the check below fail *closed*: every other name — a
- * provider adapter's factory, one that does not exist yet, or a helper nobody
- * has classified — reads as billing a provider. Adding a name here is a claim
- * that calling it bills no one, and is the deliberate act that says so.
- */
-const NON_BILLING_AI_CALLS = new Set(["createFakeLlmPort"]);
-
-const IMPORT_CLAUSE = /import\s*\{([^}]*)\}\s*from\s*["']([^"'\n]+)["']/g;
-
-/** The value bindings `module` imports by name from the module `target`. */
-function valueImportsOf(module: string, source: string, target: string): string[] {
-  return [...withoutComments(source).matchAll(IMPORT_CLAUSE)].flatMap((match) => {
-    const clause = match[1];
-    const specifier = match[2];
-    if (clause === undefined || specifier === undefined) {
-      return [];
-    }
-    if (resolveWithin(module, specifier) !== target) {
-      return [];
-    }
-    return (
-      clause
-        .split(",")
-        .map((entry) => entry.trim())
-        // `import { type X, y }` — a type-only binding is not something called.
-        .filter((entry) => entry !== "" && !entry.startsWith("type "))
-        // `a as b` binds `b`; a bare `a` binds itself.
-        .map((entry) => {
-          const parts = entry.split(/\s+as\s+/);
-          return parts[1] ?? parts[0] ?? "";
-        })
-        .filter((name) => /^[A-Za-z_$][\w$]*$/.test(name))
-    );
-  });
-}
-
-/** Whether `source` calls `name`, as opposed to merely importing it. */
-function isCalled(source: string, name: string): boolean {
-  return new RegExp(`\\b${name}\\s*\\(`).test(withoutComments(source));
-}
-
-/**
- * Whether a composition root's text wires an adapter that bills a provider.
- *
- * @remarks
- * What it catches: the AI surface's factory names this file actually calls. A
- * source calling anything from `src/ai/index.ts` outside
- * {@link NON_BILLING_AI_CALLS}, and a source calling nothing from it at all,
- * both read as billed — an unrecognised wiring is treated as the expensive one.
- *
- * What it does not: this reads a name, never what the name does. A
- * `createFakeLlmPort` rewritten to proxy a real provider, or a paid call made
- * inline *beside* a still-wired fake adapter, would pass here. The zone edges
- * above narrow that considerably — reaching a provider through the layer needs
- * an adapter module, which `src/server/` may not import, though a bare `fetch`
- * to a provider's URL would pass here — so the residue is real, and this
- * assertion is a guard against an adapter swap being made half-way, not a
- * proof that no money can be spent.
- */
-function wiresABilledAdapter(module: string, source: string): boolean {
-  const called = valueImportsOf(module, source, AI_SURFACE).filter((name) =>
-    isCalled(source, name),
-  );
-  return called.length === 0 || called.some((name) => !NON_BILLING_AI_CALLS.has(name));
-}
-
-/** The literal `name` is declared as, or `undefined` if it is not declared. */
-function declaredBoolean(source: string, name: string): boolean | undefined {
-  const match = new RegExp(`\\b${name}\\s*=\\s*(true|false)\\b`).exec(
-    withoutComments(source),
-  );
-  return match?.[1] === undefined ? undefined : match[1] === "true";
-}
-
-const compositionSource = readFileSync(path.join(repoRoot, COMPOSITION_ROOT), "utf8");
-const adapterPolicySource = readFileSync(
-  path.join(repoRoot, `${ADAPTER_POLICY}.ts`),
-  "utf8",
-);
-
-describe("src/server/composition.ts declares the cost of the adapter it wires", () => {
-  // The reader is pinned before it is trusted, the same way SCANNER_CONTROL
-  // pins the import scanner: a classifier that quietly recognises nothing would
-  // agree with a `false` flag forever. The first control is the exact edit this
-  // assertion exists to stop — a provider adapter wired with the flag left
-  // `false`.
-  it.each([
-    [
-      "a provider adapter wired with the flag left false",
-      `
-        import { createOpenRouterAdapter } from "../ai/index";
-        import { readServerEnv } from "./env";
-        const ADAPTER_BILLS_A_PROVIDER = false;
-        const env = readServerEnv({ billsAProvider: ADAPTER_BILLS_A_PROVIDER });
-        const llm = createOpenRouterAdapter({ apiKey: env.OPENROUTER_API_KEY });
-      `,
-      true,
-      false,
-    ],
-    [
-      "the fake adapter wired with the flag false",
-      `
-        import { createFakeLlmPort } from "../ai/index";
-        const ADAPTER_BILLS_A_PROVIDER = false;
-        const llm = createFakeLlmPort({ response: { answer: "x" } });
-      `,
-      false,
-      false,
-    ],
-    [
-      "a provider adapter wired with the flag flipped to true",
-      `
-        import { createOpenRouterAdapter } from "../ai/index";
-        const ADAPTER_BILLS_A_PROVIDER = true;
-        const llm = createOpenRouterAdapter({ apiKey: "" });
-      `,
-      true,
-      true,
-    ],
-    [
-      "the fake opted into beside a provider adapter, with the flag true",
-      `
-        import { createFakeLlmPort, createOpenRouterAdapter } from "../ai/index";
-        const ADAPTER_BILLS_A_PROVIDER = true;
-        const llm =
-          env.LLM_ADAPTER === "fake"
-            ? createFakeLlmPort({ response: { answer: "x" } })
-            : createOpenRouterAdapter({ apiKey: env.OPENROUTER_API_KEY });
-      `,
-      true,
-      true,
-    ],
-    [
-      "an adapter imported under a different name, which is not recognised",
-      `
-        import { createFakeLlmPort as buildPort } from "../ai/index";
-        const ADAPTER_BILLS_A_PROVIDER = false;
-        const llm = buildPort({ response: { answer: "x" } });
-      `,
-      true,
-      false,
-    ],
-    [
-      "a factory named only in a comment, which is not a wiring",
-      `
-        import { createFakeLlmPort } from "../ai/index";
-        // Swap in createOpenRouterAdapter({ apiKey: env.OPENROUTER_API_KEY }) here.
-        const ADAPTER_BILLS_A_PROVIDER = false;
-        const llm = createFakeLlmPort({ response: { answer: "x" } });
-      `,
-      false,
-      false,
-    ],
-    [
-      "nothing from the AI surface called at all",
-      `
-        const ADAPTER_BILLS_A_PROVIDER = false;
-        const llm = { async ask() { return { ok: true }; } };
-      `,
-      true,
-      false,
-    ],
-  ])("reads %s", (_case, source, billed, declared) => {
-    expect(wiresABilledAdapter(COMPOSITION_ROOT, source)).toBe(billed);
-    expect(declaredBoolean(source, "ADAPTER_BILLS_A_PROVIDER")).toBe(declared);
-  });
-
-  it("still declares the flag the environment read is gated on", () => {
-    expect(declaredBoolean(adapterPolicySource, "ADAPTER_BILLS_A_PROVIDER")).toBeTypeOf(
-      "boolean",
-    );
-    expect(
-      valueImportsOf(COMPOSITION_ROOT, compositionSource, ADAPTER_POLICY),
-    ).toContain("ADAPTER_BILLS_A_PROVIDER");
-    expect(compositionSource).toContain(
-      "readServerEnv({ billsAProvider: ADAPTER_BILLS_A_PROVIDER })",
-    );
-  });
-
-  // The one that bites: wiring anything other than a recognised free adapter
-  // while the flag stays `false` leaves `POST /api/ask` open on an endpoint
-  // that costs money to answer, which is the whole of what issue #82 closes.
-  it("declares ADAPTER_BILLS_A_PROVIDER true if and only if it wires a billed adapter", () => {
-    expect(declaredBoolean(adapterPolicySource, "ADAPTER_BILLS_A_PROVIDER")).toBe(
-      wiresABilledAdapter(COMPOSITION_ROOT, compositionSource),
-    );
   });
 });

@@ -54,21 +54,62 @@ jobs:
       - name: Type check
         run: pnpm run typecheck
 
-      # `next build` type-checks the App Router entry points the way the
-      # framework loads them, which the bare `tsc` step above cannot: a page
-      # or layout is reached through Next's file-system convention, not
-      # through an import.
+  extension:
+    name: Build and end-to-end
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Build
         run: pnpm run build
 
-      # The only check that starts the application and asks it for a page over
-      # HTTP. It sits here, immediately after `Build`, because it serves that
-      # build: in the `test` job below there is none, and giving it one would
-      # mean building this application twice in a single workflow. The default
-      # test run filters it out for the same reason — see `test:smoke` in
-      # package.json.
-      - name: Smoke test
-        run: pnpm run test:smoke
+      # Edge runs the same Chromium build; building it here is what catches a
+      # `import.meta.env.BROWSER` branch that only breaks the Edge target.
+      - name: Build for Edge
+        run: pnpm run build:edge
+
+      # Reads the manifest `Build` just wrote and pins the permissions a user
+      # is asked to accept. It sits immediately after the build it reads, for
+      # the same reason the end-to-end suite below does: in the `test` job
+      # there is no build, and giving it one would build the extension twice
+      # in a single workflow.
+      - name: Manifest test
+        run: pnpm run test:manifest
+
+      # Playwright's bundled Chromium plus the system libraries it links
+      # against. Branded Google Chrome ignores `--load-extension`, so the suite
+      # cannot run on the runner's preinstalled Chrome.
+      - name: Install Chromium for Playwright
+        run: pnpm run e2e:browsers
+
+      - name: End-to-end tests
+        run: pnpm run test:e2e
+
+      # The HTML report and the traces `retain-on-failure` kept: what a reader
+      # needs to see why a browser test failed without re-running it.
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
 
   test:
     name: Test (${{ matrix.os }})

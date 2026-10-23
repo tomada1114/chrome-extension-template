@@ -1,13 +1,13 @@
 ---
 name: tdd
 description: >
-  Use when changing behavior under src/ - adding a function, a handler branch or a
-  component state, or fixing a bug - to settle the order of work: which zone the code
-  goes in, the failing test before the implementation, proving with pnpm exec vitest run
-  that it fails for the right reason, the smallest change that turns it green,
-  refactoring with the gates on, the regression test a bug fix starts from, and landing
-  test and code in one commit. Also when a test written after the code only restates
-  what the code does.
+  Use when changing behavior under src/ - adding a function, a service-worker listener,
+  a message handler or a component state, or fixing a bug - to settle the order of work:
+  which zone the code goes in, the failing test before the implementation, proving with
+  pnpm exec vitest run that it fails for the right reason, the smallest change that
+  turns it green, refactoring with the gates on, the regression test a bug fix starts
+  from, and landing test and code in one commit. Also when a test written after the code
+  only restates what the code does.
 ---
 
 # Test-Driven Development
@@ -15,9 +15,9 @@ description: >
 **Owns:** the order of work on a behavior change under `src/` — where the code goes, the
 failing test before it, the proof that the test fails, the smallest change that passes,
 the refactor, and the commit. **Does not own:** how a test case is written
-(`writing-tests`); which file and vitest project it joins and which coverage floor
-governs it (`placing-tests`); compile-time assertions (`type-testing`); which file a
-page, layout or handler is (`building-app-routes`); what `src/core/` may not read
+(`writing-tests`); which file and suite it joins and which coverage floor governs it
+(`placing-tests`); compile-time assertions (`type-testing`); what an entrypoint holds
+and what moves out of it (`building-entrypoints`); what `src/core/` may not read
 (`writing-typescript`); the map from a changed path to its check (AGENTS.md's
 "Validating a change").
 
@@ -39,16 +39,19 @@ means for the order of work.
   is framework-free, tested by calling it, and counted against the `src/` coverage
   floor. **REQUIRED:** `writing-typescript`'s "Core logic" for what core is handed
   rather than reads.
-- **A handler** under `src/server/handlers/` stays a thin Web-standard function: parse
-  the request, call core, map the result to a `Response`. A branch that decides
-  something moves down into core, where its test needs no `Request` at all.
+- **A listener or message handler** under `src/background/` stays thin: read storage,
+  call core, write the result back. A branch that decides something moves down into
+  core, where its test needs no browser at all.
+- **Content-script logic** under `src/content/` takes the `document` it writes into as
+  an argument, so a jsdom test can hand it one.
 - **A component** renders what it is handed. Logic that chooses what to show is a value
   core computes and the component receives as a prop.
-- **A page, layout or Route Handler** under `src/app/` — **REQUIRED:**
-  `building-app-routes` for which file it is and what moves out of it.
+- **An entrypoint** under `src/entrypoints/` is wiring with no logic to test-drive —
+  **REQUIRED:** `building-entrypoints` for what it holds and what moves out of it.
 
-The test follows the zone: call the core function, send a `new Request(…)` into the
-handler factory, render the component under jsdom.
+The test follows the zone: call the core function, start the service-worker module on
+`fakeBrowser` and send it the message, run the content-script function against a jsdom
+`document`, render the component with its props.
 
 ## Red: the test first
 
@@ -102,27 +105,28 @@ Then widen the check from the one file to the narrowest one for what changed. Th
 for an exact path is in AGENTS.md's "Validating a change", which wins wherever this
 summary disagrees with it:
 
-| What changed                                                       | Run                                                     |
-| ------------------------------------------------------------------ | ------------------------------------------------------- |
-| A module with an in-process test — core, server, i18n, a component | `pnpm exec vitest run tests/<name>.test.ts` (or `.tsx`) |
-| An import that crosses a zone boundary                             | `pnpm exec vitest run tests/boundaries.test.ts`         |
-| Anything only a running server shows — a page, a layout, styles    | `pnpm build`, then `pnpm test:smoke`                    |
-| Any of the above, before the commit                                | `pnpm check:quick`                                      |
-| A new file under a coverage floor, or before the pull request      | `pnpm test:coverage`, then `pnpm check:source`          |
+| What changed                                                               | Run                                                     |
+| -------------------------------------------------------------------------- | ------------------------------------------------------- |
+| A module with an in-process test — core, platform, a context, a component  | `pnpm exec vitest run tests/<name>.test.ts` (or `.tsx`) |
+| An import that crosses a zone boundary                                     | `pnpm exec vitest run tests/boundaries.test.ts`         |
+| Anything only a loaded extension shows — an entrypoint, the wiring, styles | `pnpm build`, then `pnpm test:e2e`                      |
+| Any of the above, before the commit                                        | `pnpm check:quick`                                      |
+| A new file under a coverage floor, or before the pull request              | `pnpm test:coverage`, then `pnpm check:source`          |
 
 ## Fixing a bug
 
 The regression test comes before the fix, and it reproduces the bug through the
 interface the caller hit — not through a helper the bug happened to pass through.
 
-1. Write the test the way the caller met the bug: `new Request(…)` into the handler
-   factory for a wrong response, the component rendered under jsdom for wrong output,
-   the core function called directly for a wrong value. Name it after the behavior, not
-   the report.
-2. Prove it fails with the bug's own symptom — the wrong status, the wrong text, the
+1. Write the test the way the caller met the bug: a message sent to the started service
+   worker for a wrong answer or a wrong stored value, the component rendered under jsdom
+   for wrong output, the core function called directly for a wrong value, a value
+   written straight into `fakeBrowser`'s storage for a bad read-back. Name it after the
+   behavior, not the report.
+2. Prove it fails with the bug's own symptom — the wrong badge, the wrong text, the
    wrong value — not with any error at all.
-3. What only a running server shows reproduces through `pnpm build && pnpm test:smoke`.
-   A new smoke case is a claim that no in-process test could assert the same thing —
+3. What only a loaded extension shows reproduces through `pnpm build && pnpm test:e2e`.
+   A new spec is a claim that no in-process test could assert the same thing —
    **REQUIRED:** `placing-tests` before adding one.
 4. Then green and refactor as above. The regression test stays.
 

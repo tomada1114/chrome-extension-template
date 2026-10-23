@@ -42,7 +42,10 @@ export const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const SKIPPED_DIRECTORIES = new Set([
   "node_modules",
   ".git",
-  ".next",
+  ".wxt",
+  ".output",
+  "test-results",
+  "playwright-report",
   "dist",
   "coverage",
   "fixtures",

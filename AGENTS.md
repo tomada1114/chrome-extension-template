@@ -20,67 +20,75 @@ checked.
 
 ## Overview
 
-A template for a Next.js application on the App Router, written in ESM-only TypeScript:
-a locale-prefixed page tree styled with Tailwind v4 and shadcn/ui, one JSON endpoint,
-and one language-model call behind a port that an adapter implements. It answers through
-a hosted provider's adapter by default, with the model chosen by `LLM_MODEL`, so the
-endpoint needs that provider's key and an `API_ACCESS_KEY` before it will load;
-`LLM_ADAPTER=fake` is the explicit, never-inferred switch to a fake adapter that needs
-neither and bills nothing — what the smoke test and a keyless `pnpm dev` run on. The
-whole AI layer is built to come out in one piece for a project that does not want one.
+A template for a Manifest V3 browser extension for Chrome and Edge, written in ESM-only
+TypeScript and built with [WXT](https://wxt.dev): a service worker, a content script, a
+popup and an options page, the two screens rendered with React and styled with Tailwind
+v4 and shadcn/ui. The sample behavior is deliberately small — the popup counts clicks
+through the service worker, the service worker mirrors the count onto the toolbar badge,
+the options page turns that badge off, and the content script marks
+`https://example.com/*` — so that every extension context, storage area and message path
+has one working, tested example to copy from and nothing else to delete.
 
-It is private: nothing here is packed, published, or consumed as a tarball, so there is
-no published `engines.node` floor — `.node-version` and `devEngines.runtime` carry the
-Node 24 development runtime instead. pnpm 11 is the package manager, used through
-Corepack.
+It is private on npm: nothing here is packed or consumed as a tarball. What ships is the
+zip `wxt zip` builds, uploaded to the Chrome Web Store and Microsoft Edge Add-ons by
+`release.yml`. `.node-version` and `devEngines.runtime` carry the Node 24 development
+runtime; pnpm 11 is the package manager, used through Corepack.
 
 ## Product
 
 PRODUCT: UNDESCRIBED
 
-This template leaves its product open. In a new app, fill these TODOs after the rename,
-then remove the marker and its row in `tests/placeholders.test.ts`. The marker stays in
-the template itself, like the design-direction marker below.
+This template leaves its product open. In a new extension, fill these TODOs after the
+rename, then remove the marker and its row in `tests/placeholders.test.ts`. The marker
+stays in the template itself, like the design-direction marker below.
 
-- **What it is, and who it is for** — TODO: one paragraph describing the app and its
-  intended users.
+- **What it is, and who it is for** — TODO: one paragraph describing the extension and
+  its intended users.
+- **The single purpose** — TODO: the one sentence the Chrome Web Store's single-purpose
+  policy will be judged against. Every permission must serve it.
 - **The core actions** — TODO: the one or two things a user does most.
-- **Non-goals** — TODO: what the app deliberately does not do. Moving a non-goal into
-  scope is a human's decision.
+- **Non-goals** — TODO: what the extension deliberately does not do. Moving a non-goal
+  into scope is a human's decision.
 
 ## Before the first screen
 
-The template ships no design direction. `src/app/globals.css` carries shadcn/ui's stock
-`neutral` tokens only so a copied component renders, and the lock in `designing-ui` is
-blank; both carry a marker that `tests/placeholders.test.ts` lists beside the rest of
-the template's identity. In this template itself that is intended. In a project started
-from it, settling the direction comes before the first screen of its own: when asked to
-build or restyle UI while that marker still stands, say so and propose settling it first
-— `starting-an-app` owns the step. Never choose a palette, a typeface or a layout by
-taste to get a screen done.
+The template ships no design direction. `src/assets/globals.css` carries shadcn/ui's
+stock `neutral` tokens only so a copied component renders, and the lock in
+`designing-ui` is blank; both carry a marker that `tests/placeholders.test.ts` lists
+beside the rest of the template's identity. In this template itself that is intended. In
+a project started from it, settling the direction comes before the first screen of its
+own: when asked to build or restyle UI while that marker still stands, say so and
+propose settling it first — `starting-an-app` owns the step. Never choose a palette, a
+typeface or a layout by taste to get a screen done.
 
 ## Quick reference
 
 The scripts are grouped by how they may be run: finite ones an agent runs to check its
-own work, servers that never end on their own, and the ones that write to GitHub.
+own work, the ones that open a browser window, and the ones that write somewhere other
+than this checkout.
 
 ### Checks an agent runs
 
 ```sh
-pnpm build         # production build; also type-checks the App Router entry points
-pnpm check:quick   # format check, lint, typecheck, tests — the everyday gate
-pnpm check:source  # the same gate plus the build and skill script tests, with coverage enforced
-pnpm fix           # ESLint autofix, then Prettier
-pnpm test          # tests only
-pnpm test:coverage # tests with the coverage thresholds enforced
-pnpm test:smoke    # serves the last `pnpm build` with `next start` and asserts over HTTP
-pnpm test:skills   # the shipping-issues skill's Python script tests (needs python3; ~2 min)
-pnpm agents:sync   # regenerate .claude/skills/ from .agents/skills/
-pnpm agents:check  # fail when the two skill trees have drifted apart
-pnpm hooks:verify  # verify the installed Git hooks; first in check:source
-pnpm hooks:install # repair the Git hooks; `pnpm install` installs them already
-pnpm clean         # remove the build and tool caches (.next, coverage, .eslintcache, tsbuildinfo)
-pnpm clean:deep    # the same, plus dist/ and node_modules/ — a reinstall follows
+pnpm build          # production build for Chrome into .output/chrome-mv3/
+pnpm build:edge     # the same for Edge into .output/edge-mv3/
+pnpm check:quick    # format check, lint, typecheck, tests — the everyday gate
+pnpm check:source   # the full gate: builds, manifest test, end-to-end, coverage, skill scripts
+pnpm fix            # ESLint autofix, then Prettier
+pnpm test           # unit, component and automation tests
+pnpm test:coverage  # the same with the coverage floors enforced
+pnpm test:manifest  # pins the permissions in the last `pnpm build`'s manifest
+pnpm test:e2e       # loads the last `pnpm build` into headless Chromium (Playwright)
+pnpm e2e:browsers   # install Playwright's Chromium once per machine
+pnpm test:skills    # the shipping-issues skill's Python script tests (needs python3; ~2 min)
+pnpm zip            # the store upload for Chrome, in .output/
+pnpm zip:edge       # the store upload for Edge, in .output/
+pnpm agents:sync    # regenerate .claude/skills/ from .agents/skills/
+pnpm agents:check   # fail when the two skill trees have drifted apart
+pnpm hooks:verify   # verify the installed Git hooks; first in check:source
+pnpm hooks:install  # repair the Git hooks; `pnpm install` installs them already
+pnpm clean          # remove build output, reports and tool caches
+pnpm clean:deep     # the same, plus .wxt/ and node_modules/ — a reinstall follows
 ```
 
 Reach for `pnpm clean`/`pnpm clean:deep` rather than an `rm -rf`: `scripts/clean.mjs`
@@ -89,202 +97,219 @@ typo nor a directory link leading out of the checkout can reach the machine, and
 target list is reviewable in `package.json` instead of retyped at a prompt each time.
 `clean:deep` leaves the checkout without dependencies — run `pnpm install` after it.
 
-Run a single test file with `pnpm exec vitest run tests/<name>.test.ts`.
+Run a single test file with `pnpm exec vitest run tests/<name>.test.ts`, and a single
+browser test with `pnpm exec playwright test e2e/<name>.spec.ts` after `pnpm build`.
 
-`pnpm check:quick` is the everyday local gate; `pnpm check:source` adds the build, the
-coverage floors and the skill script tests on top of it. CI runs those same checks as
-separate steps, so a green `pnpm check:source` here means those are green too.
-`lefthook`'s pre-commit hook runs a staged-file-scoped version of the same tools —
-format applied rather than merely checked, tests limited to the ones reachable from the
-staged files — before every commit. Nothing — not a hook, not a workflow — defines a
-check of its own; they all call these scripts.
+`pnpm check:quick` is the everyday local gate; `pnpm check:source` adds both builds, the
+manifest and end-to-end suites, the coverage floors and the skill script tests on top of
+it. CI runs those same checks as separate steps, so a green `pnpm check:source` here
+means those are green too. `lefthook`'s pre-commit hook runs a staged-file-scoped
+version of the same tools — format applied rather than merely checked, tests limited to
+the ones reachable from the staged files — before every commit. Nothing — not a hook,
+not a workflow — defines a check of its own; they all call these scripts.
+
+`pnpm install` also runs `wxt prepare` (the `postinstall` script), which generates
+`.wxt/`: the typed `#i18n` module and the ambient types `tsconfig.json` includes. A type
+error naming `#i18n` or `import.meta.env` after a fresh clone or a catalog change means
+it has not run; `pnpm exec wxt prepare` regenerates it.
 
 Development and source checks stay on Node 24, stated once in `.node-version` and once
 in `devEngines.runtime`. Never relax `devEngines.runtime`'s `onFail: error`, and never
 reach for `--config.runtime-on-fail=ignore`: nothing here runs on any other Node.
 
-### Long-running — run with the rules below
+### Opens a browser window — run with the rules below
 
 ```sh
-pnpm dev           # start the Next.js development server on http://localhost:3000
-pnpm start         # serve the production build from `pnpm build`
+pnpm dev            # build in watch mode and launch Chromium with the extension loaded
+pnpm dev:edge       # the same, for Edge
 ```
 
-### Writes to GitHub
+### Writes to GitHub or to a store
 
 ```sh
-pnpm repo:labels   # create/update GitHub labels from .github/labels.yml
-pnpm repo:ruleset  # create/update the main ruleset from .github/rulesets/ (admin token)
+pnpm repo:labels    # create/update GitHub labels from .github/labels.yml
+pnpm repo:ruleset   # create/update the main ruleset from .github/rulesets/ (admin token)
+git push origin v<version>   # starts release.yml: GitHub release, then store submission
 ```
 
-These are listed apart because they write to the repository on GitHub, not because an
-agent may never run them: an agent may run `pnpm repo:labels` when its task needs the
-label set. `pnpm repo:ruleset` needs a token with admin rights on the repository and
-stays a human's step.
+These are listed apart because they write outside this checkout, not because an agent
+may never run them: an agent may run `pnpm repo:labels` when its task needs the label
+set. `pnpm repo:ruleset` needs a token with admin rights on the repository and stays a
+human's step. A release tag is a human's step too: it publishes to every user of the
+extension once the `store-submission` environment's reviewer approves it, and an agent
+prepares the release (`releasing-to-stores`) and stops before the push.
 
-### Running a server without taking over the developer's
+### Running a browser without taking over the developer's
 
-- To verify something only a running server shows, run `pnpm build && pnpm test:smoke`
-  first: the smoke suite starts `next start` on a free port and stops it itself. Start a
-  server yourself only when that cannot show it.
-- Start that server on a free port (`pnpm dev --port <free>` or
-  `pnpm start --port <free>`), verify against it, and always stop it before your turn
-  ends.
-- Never stop, restart or bind the developer's server on :3000.
-- Run no `open`, `gh … --web` or any other command that opens a browser window or takes
-  focus during a routine check; give the human the URL instead.
+- To verify something only a loaded extension shows, run `pnpm build && pnpm test:e2e`
+  first: the suite launches its own headless Chromium with a throwaway profile and
+  closes it itself. Write a spec under `e2e/` for what it does not yet cover rather than
+  driving a browser by hand.
+- `pnpm dev` opens a visible browser window and keeps running. Do not start it during a
+  routine check; when only a human looking can settle a question, say what to look at
+  and let them run it — `running-the-extension` owns that hand-off.
+- Never load the build into the developer's own Chrome profile, and never touch their
+  running browser.
+- Run no `open`, `gh … --web` or any other command that opens a window or takes focus
+  during a routine check; give the human the URL or the path instead.
 
 ## Validating a change
 
 Run the narrowest check that can fail, then the gate. Reaching for `pnpm check:source`
 on every edit is slow enough that it stops being run at all.
 
-| What you changed                                       | The narrowest check that can fail                                        |
-| ------------------------------------------------------ | ------------------------------------------------------------------------ |
-| A module under `src/core/` or `src/ai/`                | `pnpm exec vitest run tests/<module>.test.ts`                            |
-| A handler or the composition root under `src/server/`  | `pnpm exec vitest run tests/server-handler.test.ts`                      |
-| `src/server/env.ts` or `.env.example`                  | `pnpm exec vitest run tests/server-env.test.ts`                          |
-| A page, layout or route handler under `src/app/`       | `pnpm build`, then `pnpm test:smoke`                                     |
-| A component with a rendered test                       | `pnpm exec vitest run tests/<name>.test.tsx`                             |
-| A catalog under `messages/`, or `src/i18n/messages.ts` | `pnpm exec vitest run tests/messages.test.ts`                            |
-| `src/proxy.ts` or the locale routing behind it         | `pnpm exec vitest run tests/proxy.test.ts`                               |
-| Anything only a running server shows                   | `pnpm build`, then `pnpm test:smoke`                                     |
-| `src/app/globals.css` or `postcss.config.mjs`          | `pnpm build`, then `pnpm test:smoke`                                     |
-| An import that crosses a zone boundary                 | `pnpm exec vitest run tests/boundaries.test.ts`                          |
-| A test                                                 | `pnpm exec vitest run tests/<name>.test.ts`                              |
-| A script under `scripts/`                              | `pnpm exec vitest run tests/<script>.test.ts`                            |
-| A skill under `.agents/skills/`                        | `pnpm agents:sync && pnpm agents:check && pnpm test && pnpm test:skills` |
-| `package.json`, `pnpm-workspace.yaml`                  | `pnpm install`, then `pnpm check:source`                                 |
-| Markdown                                               | `pnpm fix`                                                               |
+| What you changed                                          | The narrowest check that can fail                                        |
+| --------------------------------------------------------- | ------------------------------------------------------------------------ |
+| A module under `src/core/`                                | `pnpm exec vitest run tests/<module>.test.ts`                            |
+| A module under `src/platform/`, `background/`, `content/` | `pnpm exec vitest run tests/<module>.test.ts` (runs on `fakeBrowser`)    |
+| A component or hook under `src/components/`               | `pnpm exec vitest run tests/<name>.test.tsx`                             |
+| An entrypoint under `src/entrypoints/`                    | `pnpm build`, then `pnpm test:e2e`                                       |
+| `wxt.config.ts`, a permission, or a content-script match  | `pnpm build`, then `pnpm test:manifest` and `pnpm test:e2e`              |
+| A catalog under `src/locales/`                            | `pnpm exec wxt prepare && pnpm exec vitest run tests/locales.test.ts`    |
+| `src/assets/globals.css` or a screen's styling            | `pnpm build`, then `pnpm test:e2e`                                       |
+| An import that crosses a zone boundary                    | `pnpm exec vitest run tests/boundaries.test.ts`                          |
+| A test                                                    | `pnpm exec vitest run tests/<name>.test.ts`                              |
+| A spec under `e2e/`                                       | `pnpm build`, then `pnpm exec playwright test e2e/<name>.spec.ts`        |
+| A script under `scripts/`                                 | `pnpm exec vitest run tests/<script>.test.ts`                            |
+| A skill under `.agents/skills/`                           | `pnpm agents:sync && pnpm agents:check && pnpm test && pnpm test:skills` |
+| `package.json`, `pnpm-workspace.yaml`                     | `pnpm install`, then `pnpm check:source`                                 |
+| Markdown                                                  | `pnpm fix`                                                               |
 
 ## Architecture
 
 ```
 src/
-├── core/       # framework-free vocabulary: a Result, a domain type, a pure function
-├── ai/         # the LlmPort, its error vocabulary, and the adapters behind it
-├── server/     # the environment read, the composition root, and request handlers
-├── i18n/       # the locale list, its URL routing, and the typed message catalogs
-├── components/ # UI: the shadcn/ui copies under ui/ and this app's own components
-├── app/        # the Next.js App Router tree: pages, layouts, route handlers
-└── proxy.ts    # Next.js's request proxy: locale detection ahead of every page request
-messages/       # one JSON catalog per locale, shaped by en.json
-scripts/        # repository automation, authored as .mjs, never shipped
+├── core/         # framework-free vocabulary: domain types and pure functions
+├── platform/     # the typed browser APIs: the storage schema, the message protocol, i18n
+├── background/   # the service worker's logic, registered by entrypoints/background.ts
+├── content/      # the content script's logic, registered by entrypoints/content.ts
+├── components/   # React UI: shadcn/ui copies under ui/, this extension's screens and hooks
+├── entrypoints/  # what WXT turns into the manifest: one file or folder per context
+├── locales/      # one catalog per locale, compiled into _locales/ by @wxt-dev/i18n
+└── assets/       # the Tailwind stylesheet the screens import
+public/icon/      # the toolbar and store icons, copied into the build as-is
+e2e/              # Playwright specs that load the built extension into Chromium
+scripts/          # repository automation, authored as .mjs, never shipped
 ```
 
-Imports run one way — `app` → `server` → `ai` → `core`, with `app` → `components` →
-`core` beside it — and `i18n` is a leaf that the page tree, the components and the
-handlers all read. `core` is the bottom of both orders: it names no framework and no
-vendor SDK, so it survives a change of either. `components` is reached from `app` alone
-— it renders what it is handed, so it names no page, no handler and nothing in the AI
-layer, and `server`, `ai`, `core` and `i18n` in turn name nothing in it.
+Imports run one way. `entrypoints` is the top and may name every zone below it.
+`background` and `content` each reach `platform`, which reaches `core`; `components`
+reaches `core` beside them. `core` is the bottom: it names no browser API and no React,
+so it runs in a plain unit test. `components` names no browser API either — it renders
+what it is handed, as props and as `StoredValue`s from `src/core/stored-value.ts` — so a
+component test needs jsdom and nothing else. `background` and `content` name no React
+and no component. Auto-imports are off (`imports: false` in `wxt.config.ts`), so every
+one of these edges is a written import a reader and both checks below can see.
 
 A module under `src/` is reached either relatively or through the `@/*` → `./src/*`
 alias, which exists because shadcn/ui writes `@/components/...` into every component it
-copies in. Three resolvers are told about it separately — `tsconfig.json`'s `paths`,
-`vitest.config.ts`'s `resolve.alias`, and `eslint.config.mjs`, which matches specifier
-text and so carries an `@/` twin of every zone pattern — and `tests/boundaries.test.ts`
-resolves both spellings, so neither is a way around the order above.
+copies in. `tsconfig.json`'s `paths` and WXT's own config both resolve it, and
+`eslint.config.mjs` matches specifier text and so carries an `@/` twin of every zone
+pattern; `tests/boundaries.test.ts` resolves both spellings, so neither is a way around
+the order above.
+
+### Four contexts, four sets of rules
+
+An extension is four programs that share a package, not one:
+
+- **The service worker** (`background`) has no DOM and is stopped whenever it idles,
+  then restarted for the next event. Module state does not survive that, and a listener
+  registered after an `await` misses the event that woke the worker. Listeners are
+  registered synchronously in `startBackground()`, and state lives in storage.
+- **The content script** (`content`) runs inside a page the extension does not own. Its
+  DOM, its globals and every message it sends are untrusted input to the rest of the
+  extension; it writes into the page with `textContent` and `createElement` only, and it
+  cleans up when its context is invalidated by an update.
+- **The screens** (the popup and options page under `src/entrypoints/<name>/`) are
+  ordinary extension pages. The popup is destroyed every time it closes. A screen talks
+  to the service worker by message, never by importing its zone.
+- **The build** — the manifest — is what a user consents to and what store review reads.
+
+`eslint.config.mjs` bans `eval`, `new Function`, `innerHTML`, `insertAdjacentHTML` and
+`dangerouslySetInnerHTML` across `src/`: Manifest V3 forbids code that is not in the
+package, and markup built from strings is how a content script turns a page's text into
+script.
 
 ### The three seams
 
-Everything a project built from this template is expected to replace sits behind one of
+Everything a project built from this template is expected to extend sits behind one of
 three seams:
 
-- **The port.** `src/ai/port.ts` declares `LlmPort`, the vendor-neutral interface every
-  model call goes through, and `src/ai/index.ts` is the AI layer's whole surface — the
-  port, its error vocabulary, and whichever adapter that file chooses to publish.
-  `src/ai/adapters/` is private to the layer, so swapping the provider behind it, or
-  deleting the layer outright, is a bounded edit; `tests/ai-layer-removal.test.ts` is
-  what keeps the deletion bounded rather than trusting that it stays so.
-- **The Web-standard handler.** `src/server/handlers/ask.ts` exports
-  `createAskHandler(dependencies)`, which returns a plain
-  `(request: Request) => Promise<Response>` and imports nothing from `next`. That is
-  what lets a test drive it with `new Request(…)` and no framework, and what keeps
-  `src/app/api/ask/route.ts` a one-line re-export with no logic of its own to test.
-- **The environment.** `src/server/env.ts` is the only module under `src/` that reads
-  `process.env`. It validates the whole environment against one schema and hands every
-  other module what it needs as an argument, so "where does this secret enter the
-  process" is a question a reader answers by opening one file.
-
-`src/server/composition.ts` is where the three meet: the single place the environment,
-an adapter and a handler are joined, and the single line in this repository that names a
-vendor. That choice made anywhere else is the leak these boundaries exist to prevent.
-
-`src/instrumentation.ts` exports Next.js's startup `register` hook, which validates the
-environment before the server serves requests. It shares the composition root's billing
-declaration in `src/server/adapter-policy.ts`; changing the default adapter means
-reconsidering that declaration too. Route preloading alone cannot enforce startup health
-because Next.js swallows a module failure there.
-
-### Rate limiting
-
-This template deliberately implements neither rate limiting nor concurrency limiting for
-`POST /api/ask`. It owns no limiter state, store, algorithm, or rate-limit environment
-variable. A deployment that wires a billed adapter must enforce its caller-throughput
-policy at an edge or gateway before the request reaches the app, with enforcement shared
-across instances; a per-process limiter is not equivalent across instances.
-`API_ACCESS_KEY` is authentication only, not a rate-limit declaration.
-
-The app still owns its existing per-request request-body and prompt ceilings and rejects
-those before `llm.generate`.
+- **The storage schema.** `src/platform/storage.ts` declares every persisted key, its
+  storage area and its `version`, and it is the only module that defines one. A stored
+  value outlives the release that wrote it — an update reads what the previous version
+  left, and `storage.sync` is written by every device the user is signed in on — so what
+  comes back is parsed (`parseSettings`) rather than trusted, and a shape change is a
+  version bump with a migration. `managing-storage` owns both.
+- **The message protocol.** `src/platform/messaging.ts`'s `ProtocolMap` is every message
+  one context sends another, typed on both ends. A handler lives in `src/background/`
+  and treats a message from a content script as input from a page.
+- **The consent surface.** `wxt.config.ts`'s `permissions`, each content script's
+  `matches`, and anything else that widens what the extension can reach become the
+  generated manifest, which `tests/manifest.test.ts` pins literally. Adding a permission
+  or a host pattern disables the extension for every existing user until they accept the
+  new prompt, so that diff is a human's decision; `changing-permissions` owns it.
 
 ### What is contract and what is private
 
-Nothing here is published, so the contract is not an export map. It is what a caller
-outside the process can observe, plus what each zone publishes to the zone above it:
+Nothing here is imported by another package, so the contract is what outlives a release
+or crosses a process boundary:
 
-- **Contract.** The HTTP surface of `POST /api/ask` — its request body, its answer, and
-  the `error.code` vocabulary a client branches on. The `LlmPort` interface, `LlmError`
-  and its `ERR_LLM_*` codes, and everything else `src/ai/index.ts` names. The locale
-  list in `src/i18n/locales.ts` and the message keys `messages/en.json` defines.
-- **Private.** `src/ai/adapters/**`; the wiring inside `src/server/composition.ts`; and
-  any module a zone's own surface does not re-export. A test reaches a private module
-  through the surface that owns it, never around it.
+- **Contract.** Every key in `src/platform/storage.ts`, with its area and shape —
+  installed users carry it across updates. The manifest's consent surface. The locale
+  keys `src/locales/en.json` defines.
+- **Interface.** The `ProtocolMap` in `src/platform/messaging.ts` joins contexts of the
+  same release — a content script left over from the previous one is invalidated on
+  update and cannot reach the new worker — so it changes freely, but on both ends in one
+  commit, and what a handler receives from a content script is still parsed.
+- **Private.** Everything else under `src/`, including how a zone implements what it
+  publishes. A test reaches a module through the zone that owns it, never around it.
 
-Next.js loads a page, layout, boundary or route handler under `src/app/` by file name
-through its default export, and does the same for `src/proxy.ts` and
-`src/i18n/request.ts`. Those are framework-owned entry points, where the file's path is
-the symbol's name; everywhere else under `src/` the surface is named exports, which is
-what a reviewer can read a diff of.
+WXT finds an entrypoint by its path under `src/entrypoints/` and reads its default
+export; that tree is the one place a default export is the interface. Everywhere else
+under `src/` the surface is named exports, which is what a reviewer can read a diff of.
+An entrypoint is wiring: ESLint holds each file to a small size budget, because logic
+written there can only be tested in a browser and is bundled into that context alone.
 
 These edges are enforced twice and their values are written down in neither this file
 nor a skill: `eslint.config.mjs` carries them as `no-restricted-imports` zone blocks and
-a per-file size budget, and `tests/boundaries.test.ts` asserts the same edges from the
-module graph, so a rule deleted from that config still fails the suite. Read the numbers
-and the patterns there — a summary that restated them is the copy that goes stale. How
-to work inside a zone is a skill's subject, not this section's.
+size budgets, and `tests/boundaries.test.ts` asserts the same edges from the module
+graph, so a rule deleted from that config still fails the suite. Read the numbers and
+the patterns there — a summary that restated them is the copy that goes stale. How to
+work inside a zone is a skill's subject, not this section's.
 
 ## Skills
 
 Each skill owns one kind of change. Load the one whose subject you are working on; each
 names its own boundary with its neighbours.
 
-| Skill                    | Load it when you are working on                                                                                                           |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `building-app-routes`    | a page, layout or Route Handler under `src/app/`, `src/proxy.ts`, or `src/server/`                                                        |
-| `localizing-ui`          | a catalog under `messages/`, a module under `src/i18n/`, or adding a UI string                                                            |
-| `integrating-llm`        | the `LlmPort`, an adapter under `src/ai/`, or a fixture under `tests/fixtures/llm/`                                                       |
-| `writing-typescript`     | a `.ts` module or a `.tsx` component under `src/`                                                                                         |
-| `designing-errors`       | an error type or an `ERR_*` code, in `src/` or `scripts/`                                                                                 |
-| `tdd`                    | the order of work on a behavior change under `src/` — the failing test first, then the code, then the refactor                            |
-| `writing-tests`          | the body of a test under `tests/`                                                                                                         |
-| `placing-tests`          | a new test file, a vitest project, or a coverage floor                                                                                    |
-| `type-testing`           | an `expectTypeOf` assertion or a `@ts-expect-error` inside a test                                                                         |
-| `writing-repo-scripts`   | a `.mjs` under `scripts/`                                                                                                                 |
-| `authoring-skills`       | a skill under `.agents/skills/`                                                                                                           |
-| `changing-gates`         | a CI workflow, `lefthook.yml`, or a tool config                                                                                           |
-| `managing-dependencies`  | adding, bumping, or removing a package by hand, or pinning `.mcp.json`'s MCP server versions (an open bot PR is `merging-dependency-prs`) |
-| `merging-dependency-prs` | landing open Dependabot or Renovate pull requests                                                                                         |
-| `updating-docs`          | `README.md`, `CONTRIBUTING.md`, `AGENTS.md`, or whether a change owes a doc at all                                                        |
-| `triaging-issues`        | filing, labelling, or ranking a GitHub issue                                                                                              |
-| `building-screens`       | the states a screen renders (loading, failed, not found, empty, a failed action) and its accessible names, keyboard reach and focus       |
-| `designing-ui`           | the design direction, the theme tokens in `src/app/globals.css`, a shadcn/ui component, or styling any screen                             |
-| `running-the-app`        | evidence from a running server that no test asserts: a free port, `curl`, the next-devtools MCP server, asking a human to look            |
-| `shipping-issues`        | ranking open issues and shipping the top one (or all) through PR, CI, and merge                                                           |
-| `create-pr`              | opening a pull request for the current branch, or updating the one already open for it, outside `shipping-issues`                         |
-| `smart-commit`           | grouping changes into commits and recovering when the pre-commit hook refuses one; follow it over a user-level skill of that name         |
-| `starting-an-app`        | turning this template into a new app: the rename, the AI layer, the locales, the design direction                                         |
+| Skill                    | Load it when you are working on                                                                                                            |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `building-entrypoints`   | an entrypoint under `src/entrypoints/`, the service worker or content script logic under `src/background/` or `src/content/`, or a message |
+| `managing-storage`       | a key in `src/platform/storage.ts`, a storage area, a stored value's shape, or a migration                                                 |
+| `changing-permissions`   | a permission, a host permission, a content-script `matches` pattern, or anything else in the manifest a user consents to                   |
+| `releasing-to-stores`    | a version bump, a release tag, `release.yml`, the store listing, the privacy disclosures, or store credentials                             |
+| `localizing-ui`          | a catalog under `src/locales/`, `src/platform/i18n.ts`, or adding a UI string                                                              |
+| `writing-typescript`     | a `.ts` module or a `.tsx` component under `src/`                                                                                          |
+| `designing-errors`       | an error type or an `ERR_*` code, in `src/` or `scripts/`                                                                                  |
+| `tdd`                    | the order of work on a behavior change under `src/` — the failing test first, then the code, then the refactor                             |
+| `writing-tests`          | the body of a test under `tests/` or a spec under `e2e/`                                                                                   |
+| `placing-tests`          | a new test file, a vitest project, the Playwright suite, or a coverage floor                                                               |
+| `type-testing`           | an `expectTypeOf` assertion or a `@ts-expect-error` inside a test                                                                          |
+| `writing-repo-scripts`   | a `.mjs` under `scripts/`                                                                                                                  |
+| `authoring-skills`       | a skill under `.agents/skills/`                                                                                                            |
+| `changing-gates`         | a CI workflow, `lefthook.yml`, or a tool config                                                                                            |
+| `managing-dependencies`  | adding, bumping, or removing a package by hand (an open bot PR is `merging-dependency-prs`)                                                |
+| `merging-dependency-prs` | landing open Dependabot or Renovate pull requests                                                                                          |
+| `updating-docs`          | `README.md`, `CONTRIBUTING.md`, `AGENTS.md`, `docs/`, or whether a change owes a doc at all                                                |
+| `triaging-issues`        | filing, labelling, or ranking a GitHub issue                                                                                               |
+| `building-screens`       | the states a popup or options screen renders (loading, failed, empty, a failed action) and its accessible names, keyboard reach and focus  |
+| `designing-ui`           | the design direction, the theme tokens in `src/assets/globals.css`, a shadcn/ui component, or styling any screen                           |
+| `running-the-extension`  | evidence from a loaded extension that no test asserts yet: an end-to-end spec, a service-worker log, asking a human to look                |
+| `shipping-issues`        | ranking open issues and shipping the top one (or all) through PR, CI, and merge                                                            |
+| `create-pr`              | opening a pull request for the current branch, or updating the one already open for it, outside `shipping-issues`                          |
+| `smart-commit`           | grouping changes into commits and recovering when the pre-commit hook refuses one; follow it over a user-level skill of that name          |
+| `starting-an-app`        | turning this template into a new extension: the rename, the sample behavior, the locales, the design direction, the store setup            |
 
 ## Sub-agents
 
@@ -322,18 +347,27 @@ directories to the same tier names and instructions.
   one of the [standing exceptions](#standing-exceptions) below. No file this repository
   ships blocks the dangerous spellings — `--no-verify`, a plain force-push, workflow
   dispatch — mechanically; this instruction is the rule itself, not a pattern enforcing
-  it. The committed `.claude/settings.json` declares only plugins, and `.mcp.json` only
-  MCP servers; an agent may still carry its own personal permission allow/deny list on
-  top (a Claude Code session's own `~/.claude/settings.json` or the gitignored
-  `.claude/settings.local.json`), but that list is a choice made outside this
-  repository, not something it ships or requires.
+  it. No `.claude/settings.json` or `.mcp.json` is committed; an agent may still carry
+  its own personal permission allow/deny list (a Claude Code session's own
+  `~/.claude/settings.json` or the gitignored `.claude/settings.local.json`), but that
+  list is a choice made outside this repository, not something it ships or requires.
+- **A new permission, host permission or content-script match needs a human's
+  sign-off**, given for that change. It changes what every user is asked to accept, and
+  for an existing user it disables the extension until they do. `changing-permissions`
+  owns the procedure; the sign-off is the human's.
+- **A store release is a human's step.** Pushing a release tag and approving the
+  `store-submission` environment's deployment publish to every user; an agent prepares
+  the release and stops.
 - Never read or write `.env*` (the `.example`, `.sample` and `.template` variants are
-  fine) or anything under `secrets/`. A `.env` in a checkout of this template holds a
-  real provider credential, so reading one is already a disclosure whether or not
-  anything is written back: no `cat`, no `grep`, no copy to a temp path, and never a
-  value out of it onto a command line. `src/server/env.ts` is the list of names the
-  process reads, and `.env.example` ships every one of them with an empty value — those
-  two are what to open when you need to know what exists.
+  fine) or anything under `secrets/`. `wxt submit init` writes the store credentials
+  into `.env.submit`, so reading one is already a disclosure whether or not anything is
+  written back: no `cat`, no `grep`, no copy to a temp path, and never a value out of it
+  onto a command line. `releasing-to-stores` lists the names `release.yml` reads; open
+  that, not the file, when you need to know what exists.
+- Nothing secret is ever bundled into the extension. Everything under `src/` and
+  `public/` ships to every user in a zip anyone can unpack, so an API key, a token or a
+  private endpoint written there is published. `import.meta.env` values are inlined into
+  that same zip.
 - Read or edit a permission file — the personal `.claude/settings.local.json`, the
   committed `.claude/settings.json`, or Codex rules under `.codex/` — only when the
   owner asks for it in that session: it decides what an agent may run, so changing it
@@ -351,7 +385,7 @@ directories to the same tier names and instructions.
 That last rule stays here rather than moving into a skill, because the agent it has to
 reach is looking at a red run and has classified its task as "make CI green" — not as
 writing a test or adding a dependency, so neither skill fires. `placing-tests` explains
-why there are three separate coverage floors and `managing-dependencies` explains what
+why each zone carries its own coverage floor and `managing-dependencies` explains what
 each supply-chain setting closes off; the prohibition itself is here.
 
 When an instruction in this file would block something that looks necessary, the answer
@@ -494,6 +528,10 @@ starts with none of it, and its admin turns each on once:
 - **Dependabot alerts** and **Dependabot security updates** — `.github/dependabot.yml`
   configures version updates only; alerts on a known-vulnerable dependency, and the pull
   requests that fix one, are separate switches.
+- **The `store-submission` environment**, with the owner as its required reviewer and
+  the store identifiers and credentials `releasing-to-stores` lists. Without it
+  `release.yml` still builds, tests and attaches the packages to a GitHub release, and
+  skips the submission.
 - **The `main` ruleset**, applied by `pnpm repo:ruleset` from
   `.github/rulesets/main.json` with a token that has admin rights on the repository. It
   blocks deletion of and force-pushes to the default branch, and requires a pull request
@@ -518,8 +556,8 @@ one exception: as the Quick reference's "Writes to GitHub" says, an agent may ru
 
 - All committed code, comments, configuration, and public documentation are in English.
   `authoring-skills` applies this to a skill's `description`. The one exception is
-  `messages/*.json`: those are the UI message catalogs the application renders to a
-  reader, so `messages/ja.json` is Japanese by definition. The exception covers the
+  `src/locales/*.json`: those are the UI message catalogs the extension renders to a
+  reader, so `src/locales/ja.json` is Japanese by definition. The exception covers the
   catalogs' string values and nothing else — their keys, and every comment, test, and
   document about them, stay English. The one thing that may itself be non-English is a
   literal whose exact bytes are what a check or a worked example exercises, where

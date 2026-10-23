@@ -2864,6 +2864,7 @@ describe("the workflows in .github/workflows", () => {
       "dependency-review.yml",
       "osv-scan.yml",
       "pr-label.yml",
+      "release.yml",
       "security-audit.yml",
       "typos.yml",
     ]);
@@ -2920,13 +2921,15 @@ describe("the workflows in .github/workflows", () => {
     // gets. codeql uploads its results to code scanning, which takes
     // `security-events: write`, and never runs on a pull request. Everything
     // else, and in particular everything that runs repository code, stays
-    // read-only. This repository publishes nothing, so no workflow needs OIDC
-    // or a tag push any more.
+    // read-only. release.yml attaches the packaged extension to a GitHub
+    // release, from a job that downloads an artifact and runs no repository
+    // code; its store submission authenticates with environment secrets, not
+    // the workflow token.
     const writers = workflowNames.filter((name) =>
       scan(workflowSource(name)).some((line) => line.text.endsWith(": write")),
     );
 
-    expect(writers.sort()).toEqual(["codeql.yml", "pr-label.yml"]);
+    expect(writers.sort()).toEqual(["codeql.yml", "pr-label.yml", "release.yml"]);
   });
 });
 
@@ -3163,7 +3166,13 @@ describe("the development runtime contract fails closed", () => {
       (manifest.devDependencies?.["@types/node"] ?? "").replace(/^\D+/, ""),
     );
     expect(runtime).toBeDefined();
-    expect(nodeTypes?.slice(0, 2)).toEqual(runtime?.slice(0, 2));
+    expect(nodeTypes).toBeDefined();
+    // The types may describe an older minor than the runtime — every API they
+    // declare still exists — but never a newer one, and never another major.
+    // `@types/node` trails Node's own security releases by weeks, so requiring
+    // the same minor would force `.node-version` back below a security fix.
+    expect(nodeTypes?.[0]).toBe(runtime?.[0]);
+    expect(nodeTypes?.[1]).toBeLessThanOrEqual(runtime?.[1] ?? -1);
   });
 
   it("keeps Node declarations within the runtime minor on patch updates", () => {

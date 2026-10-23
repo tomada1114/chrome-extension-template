@@ -75,13 +75,14 @@ loaded on demand — not for a fact stated once. Extend an existing skill instea
 creating a near-duplicate when the new material is a variant of what that skill already
 covers.
 
-A platform area such as logging, authentication or LLM calls gets a project skill once
-this repository has made its own decisions there. On a surface someone else documents
-(Next.js, React, Tailwind, shadcn/ui, next-intl, Vitest, pnpm, GitHub Actions), a skill
-holds only this repository's decisions, their reasons, the mechanics that are ours
-(paths, scripts, error codes), and the traps met here. It holds nothing a vendor already
-documents: general platform knowledge stays with official documentation and the vendor's
-own skills, which the project skill links instead of restating.
+A platform area such as logging, authentication or a remote API gets a project skill
+once this repository has made its own decisions there. On a surface someone else
+documents (WXT, the Chrome extension APIs, React, Tailwind, shadcn/ui, Vitest,
+Playwright, pnpm, GitHub Actions), a skill holds only this repository's decisions, their
+reasons, the mechanics that are ours (paths, scripts, error codes), and the traps met
+here. It holds nothing a vendor already documents: general platform knowledge stays with
+official documentation and the vendor's own skills, which the project skill links
+instead of restating.
 
 **External claims.** A version, availability, default, limit, or policy claim about an
 external tool carries `(<URL>, checked YYYY-MM-DD)`, and the author opened that page on
@@ -113,9 +114,9 @@ removable code the subject of the sentence that carries the rule. A reader who d
 the example is then left with a rule that still reads, instead of a paragraph they have
 to author a replacement for out of code they have not written yet — which is exactly
 where that reader stands, because dropping a subsystem is decided before any module of
-their own exists. Nothing enforces this, and it is the reason the removal procedure asks
-for a deletion rather than a rewrite. **BACKGROUND:** `starting-an-app`, which owns that
-procedure and the lists of files it edits.
+their own exists. Nothing enforces this, and it is the reason replacing the template's
+sample behavior is a deletion rather than a rewrite. **BACKGROUND:** `starting-an-app`'s
+"The sample behavior", which owns that procedure and the files it edits.
 
 ## Size and structure
 

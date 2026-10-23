@@ -1,18 +1,16 @@
 import js from "@eslint/js";
 import vitest from "@vitest/eslint-plugin";
 import { defineConfig, globalIgnores } from "eslint/config";
-import next from "eslint-config-next";
 import eslintConfigPrettier from "eslint-config-prettier";
+import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "typescript-eslint";
 
 /**
  * The `enum` ban, applied to every file this config sees.
  *
  * @remarks
- * `tsconfig.json` used to carry this as `erasableSyntaxOnly`, which existed
- * because `src/` had to run under Node's type stripping unbuilt. Next.js
- * compiles the tree instead, so the premise is gone and the ban is stated
- * here, where it can name the reason rather than a whole syntax class.
+ * Stated here rather than as `tsconfig.json`'s `erasableSyntaxOnly`, so the
+ * rule can name the reason rather than ban a whole syntax class.
  */
 const NO_ENUM = {
   selector: "TSEnumDeclaration",
@@ -40,38 +38,63 @@ const INTERNAL_IS_PRIVATE =
   "src/internal/ is private. Tests reach it through the public surface of the module that owns it (see the `writing-tests` skill), and repository automation must not depend on module internals at all.";
 
 /**
+ * Markup built from strings, banned across `src/`.
+ *
+ * @remarks
+ * A content script writes into a page the extension does not control, and a
+ * popup renders text that came from storage, a message or a catalog. Every
+ * one of these turns that text into markup — script included — and Chrome
+ * Web Store review rejects an extension that does it with remote input. Build
+ * nodes with `textContent` and `createElement`, or let React render them.
+ */
+const NO_HTML_STRINGS = [
+  {
+    selector:
+      "AssignmentExpression > MemberExpression.left[property.name=/^(innerHTML|outerHTML)$/]",
+    message:
+      "Assigning innerHTML/outerHTML parses a string as markup. Build the nodes with createElement and textContent, or render them with React.",
+  },
+  {
+    selector:
+      "CallExpression[callee.property.name=/^(insertAdjacentHTML|write|writeln)$/]",
+    message:
+      "insertAdjacentHTML and document.write parse a string as markup. Build the nodes with createElement and textContent, or render them with React.",
+  },
+  {
+    selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
+    message:
+      "dangerouslySetInnerHTML parses a string as markup. Render the content as React children instead.",
+  },
+];
+
+/**
  * Each zone under `src/`, as every specifier that can reach into it.
  *
  * @remarks
  * A zone is reachable two ways. Relatively, leaving your own zone costs at
- * least one `../`, and the same module is `../ai/index` from one file and
- * `../../ai/index` from another. The globstar after the `../` absorbs the rest
- * whatever the importer's depth, so one pattern covers every caller; the bare
- * form is listed alongside the recursive one because a directory import
- * (`../ai`) has no trailing segment for a trailing globstar to match.
+ * least one `../`, and the same module is `../platform/storage` from one file
+ * and `../../platform/storage` from another. The globstar after the `../`
+ * absorbs the rest whatever the importer's depth, so one pattern covers every
+ * caller; the bare form is listed alongside the recursive one because a
+ * directory import (`../background`) has no trailing segment for a trailing
+ * globstar to match.
  *
- * The leading `../` is load-bearing, not decoration. An unanchored
- * `**\/server` also matches the package subpath `next-intl/server`, which
- * `src/i18n/request.ts` imports — the anchored form cannot, because a bare
- * specifier never starts with `..` or `.`.
+ * The leading `../` is load-bearing, not decoration: an unanchored
+ * `**\/content` would also match a package subpath of that name, and the
+ * anchored form cannot, because a bare specifier never starts with `..` or `.`.
  *
  * Each entry also carries a `./../**` twin of every `../**` pattern, because
  * `no-restricted-imports` matches the specifier text through the `ignore`
  * package rather than resolving it, and `ignore` treats a leading `./` as a
- * different string from a leading `../` — so `./../ai/errors` matches
- * neither the `../**\/ai/**` pattern nor the `!../**\/ai/index` exemption below
- * without its own `./../**` copy. A bare specifier still cannot start with
- * `./..`, so the twin is exactly as safe as the pattern it doubles.
+ * different string from a leading `../`. A bare specifier still cannot start
+ * with `./..`, so the twin is exactly as safe as the pattern it doubles.
  *
- * The other way is the `@/*` → `./src/*` alias `tsconfig.json` declares,
- * because shadcn/ui writes `@/components/...` imports into every component it
- * copies in. That spelling carries no `../` to anchor and needs none: it is
- * already absolute from `src/`, so `@/ai/**` names the zone from any depth,
- * and it is safe to match unanchored because no bare package name can start
- * with `@/` — a scoped package is `@scope/name`, and an empty scope is not
- * legal. A zone left without its `@/` twin would be a boundary the alias walks
- * straight through, which is why {@link zonePatterns} generates every entry
- * with both, rather than leaving the twin to be remembered per zone.
+ * The other way is the `@/*` → `./src/*` alias, which shadcn/ui writes into
+ * every component it copies in. It is already absolute from `src/`, so
+ * `@/platform/**` names the zone from any depth, and it is safe to match
+ * unanchored because no bare package name can start with `@/`. A zone left
+ * without its `@/` twin would be a boundary the alias walks straight through,
+ * which is why {@link zonePatterns} generates every entry with both.
  *
  * @param {string} name
  * @returns {string[]}
@@ -88,48 +111,31 @@ function zonePatterns(name) {
 }
 
 const ZONE =
-  /** @type {Record<"app" | "server" | "ai" | "i18n" | "components", string[]>} */ (
+  /** @type {Record<"entrypoints" | "background" | "content" | "components" | "platform", string[]>} */ (
     Object.fromEntries(
-      ["app", "server", "ai", "i18n", "components"].map((name) => [
+      ["entrypoints", "background", "content", "components", "platform"].map((name) => [
         name,
         zonePatterns(name),
       ]),
     )
   );
 
-/**
- * Every module inside the AI layer except the one it publishes.
- *
- * @remarks
- * An allow-list stated as a negation, so a module added under `src/ai/` is
- * private by default rather than private only once someone remembers to list
- * it. Order matters: both negations must follow both patterns they exempt,
- * because the last matching entry wins. The `./../**` twin exists for the
- * same reason as {@link ZONE}'s: `./../ai/errors` and `./../ai/index` are
- * invisible to the `../**` forms, so each needs its own pattern and its own
- * exemption. The `@/` form is the third spelling, and needs its own exemption
- * for the same reason.
- */
-const AI_LAYER_PRIVATE = [
-  "../**/ai/**",
-  "./../**/ai/**",
-  "@/ai/**",
-  "!../**/ai/index",
-  "!./../**/ai/index",
-  "!@/ai/index",
+/** Everything that reaches a browser or extension API, by package name. */
+const BROWSER_APIS = [
+  "wxt",
+  "wxt/**",
+  "@wxt-dev/**",
+  "@webext-core/**",
+  "#i18n",
+  "webextension-polyfill",
 ];
 
-/** Why everything under `src/ai/` but its surface is off limits to a caller. */
-const AI_LAYER_IS_PRIVATE =
-  "src/ai/index.ts is the AI layer's whole surface. Everything else under src/ai/ — the port, the error vocabulary, every adapter — is private to the layer, and naming one from here is what makes the vendor choice leak out of src/server/composition.ts, which is the one file allowed to make it.";
+/** React and the UI libraries `src/components/` is built from. */
+const UI_LIBRARIES = ["react", "react/**", "react-dom", "react-dom/**", "@radix-ui/**"];
 
-/** Why the AI layer names no zone above it, stated by two blocks. */
-const AI_LAYER_LOOKS_ONLY_DOWNWARD =
-  "src/ai/ sits below src/server/, src/components/ and src/app/ in the import order, and src/i18n/ is read by those rather than by the port. A locale, a request, a rendering or a handler concern reaching in here is what stops the layer coming out in one piece — take it as an argument on the LlmPort call instead.";
-
-/** Why `src/components/` looks only at `src/core/`, `src/i18n/` and the framework. */
-const COMPONENTS_LOOK_ONLY_DOWNWARD =
-  "src/components/ is UI: it renders what it is handed. The import order is app → components → core, so a component names no page, no handler, no composition root, and nothing in the AI layer. Take the value as a prop and let src/app/ do the fetching.";
+/** Why the service worker and the content script never reach a screen. */
+const NO_SCREEN_IN_A_WORKER =
+  "src/background/ and src/content/ run in a service worker and in someone else's page. Neither renders an extension screen, so neither names src/components/ or React — a content script that needs its own UI mounts it from src/content/ through WXT's content-script UI helpers.";
 
 export default defineConfig([
   // Only generated trees are ignored; everything hand-written is linted,
@@ -141,12 +147,15 @@ export default defineConfig([
   // linted in their own checkout.
   // A `tests/fixtures/` file is malformed on purpose, so linting it reports
   // the very defect a test asserts on.
-  // `.next/` and `next-env.d.ts` are written by `next dev`/`next build`.
+  // `.wxt/` and `.output/` are written by `wxt prepare` and `wxt build`, and
+  // `test-results/` and `playwright-report/` by the end-to-end suite.
   globalIgnores([
     "dist/",
-    ".next/",
-    "next-env.d.ts",
+    ".wxt/",
+    ".output/",
     "coverage/",
+    "test-results/",
+    "playwright-report/",
     ".claude/skills/",
     ".claude/worktrees/",
     "tests/fixtures/",
@@ -191,33 +200,30 @@ export default defineConfig([
       "no-restricted-syntax": ["error", NO_ENUM],
     },
   },
-  // `eslint-config-next` states its two rule blocks against `**/*`, which here
-  // would also mean `scripts/**/*.mjs` and `tests/**/*.ts` — trees this
-  // repository parses with typescript-eslint and lints with its own rules.
-  // Narrow them to the tree the Next.js compiler owns. The config's third
-  // entry has no `files` key (it is a global-ignores entry) and is taken as
-  // published.
-  ...next.map((entry) =>
-    "files" in entry ? { ...entry, files: ["src/**/*.{ts,tsx}"] } : entry,
-  ),
   {
-    name: "next/pinned-react-version",
-    files: ["src/**/*.{ts,tsx}"],
-    settings: {
-      // `eslint-config-next` asks eslint-plugin-react to *detect* the React
-      // version, and that detection path calls an ESLint 9 context API that
-      // ESLint 10 removed — every react/* rule throws while loading. Naming
-      // the version skips detection entirely. Keep this in step with the
-      // `react` major/minor in package.json, and drop it once
-      // eslint-plugin-react declares eslint 10 in its peer range.
-      react: { version: "19.3" },
+    // Manifest V3 forbids executing code that is not in the package, and the
+    // default extension CSP blocks `eval` at runtime anyway. These make the
+    // attempt a lint error rather than a console error in a user's browser.
+    name: "src/no-dynamic-code",
+    files: ["src/**/*.ts", "src/**/*.tsx"],
+    rules: {
+      "no-eval": "error",
+      "no-implied-eval": "off",
+      "@typescript-eslint/no-implied-eval": "error",
+      "no-new-func": "error",
+      "no-script-url": "error",
     },
+  },
+  {
+    ...reactHooks.configs.flat["recommended-latest"],
+    name: "src/react-hooks",
+    files: ["src/**/*.ts", "src/**/*.tsx"],
   },
   {
     name: "src/shared-syntax",
     files: ["src/**/*.ts", "src/**/*.tsx"],
     rules: {
-      "no-restricted-syntax": ["error", NO_ENUM, NO_EXPORT_STAR],
+      "no-restricted-syntax": ["error", NO_ENUM, NO_EXPORT_STAR, ...NO_HTML_STRINGS],
 
       // A `switch` over a union is the one place where adding a member to that
       // union silently changes behavior instead of failing to compile. With
@@ -233,17 +239,12 @@ export default defineConfig([
   {
     name: "public-api/explicit-surface",
     files: ["src/**/*.ts", "src/**/*.tsx"],
-    // Next.js finds a page, layout, loading/error boundary or route handler by
-    // its file name and reads it through its default export, so `src/app/**`
-    // is the one tree where a default export is the interface rather than an
-    // unnamed hole in one. The other two entries are the same case one
-    // directory over: Next.js loads `src/proxy.ts` by that exact path, and
-    // `createNextIntlPlugin` in next.config.ts loads `src/i18n/request.ts` by
-    // that exact path, both reading a default export — so the name is the
-    // file's and the export cannot carry one. All three are framework-owned
-    // entry points, named one by one; everywhere else under `src/` the surface
-    // stays named exports, which is what a reviewer can read a diff of.
-    ignores: ["src/app/**", "src/i18n/request.ts", "src/proxy.ts"],
+    // WXT finds an entrypoint by its file name under `src/entrypoints/` and
+    // reads its default export (`defineBackground`, `defineContentScript`), so
+    // that tree is the one place where a default export is the interface
+    // rather than an unnamed hole in one. Everywhere else under `src/` the
+    // surface stays named exports, which is what a reviewer can read a diff of.
+    ignores: ["src/entrypoints/**"],
     rules: {
       "no-restricted-exports": [
         "error",
@@ -277,24 +278,29 @@ export default defineConfig([
       "max-lines": ["error", { max: 200, skipBlankLines: false, skipComments: false }],
     },
   },
+  {
+    // An entrypoint is wiring, and WXT bundles each one separately: logic
+    // written here cannot be unit-tested without a browser, and a helper
+    // shared between two entrypoints is bundled into both. Keep each file to
+    // the calls that join the zones below.
+    name: "src/entrypoints-stay-thin",
+    files: ["src/entrypoints/**/*.ts", "src/entrypoints/**/*.tsx"],
+    rules: {
+      "max-lines": ["error", { max: 60, skipBlankLines: false, skipComments: false }],
+    },
+  },
   // --- zone boundaries -------------------------------------------------------
   //
-  // AGENTS.md states one import order — `app` → `server` → `ai` → `core`, with
-  // `app` → `components` → `core` beside it and `i18n` a leaf the page tree,
-  // the components and the handlers read — and the seven blocks below are that
-  // order, written per zone as the zones each one may not name. The leaf
-  // property is an edge like any other: `src/i18n/` may read `src/core/` and
-  // nothing above it. On top of the order, `src/app/` and `src/server/`
-  // reach the AI layer only through `src/ai/index.ts`.
-  // `tests/boundaries.test.ts` asserts the same shape from the module graph, so
-  // deleting a block here still fails the suite.
+  // AGENTS.md states one import order — `entrypoints` on top; `background` and
+  // `content` → `platform` → `core`; `components` → `core` beside them — and the
+  // blocks below are that order, written per zone as what each one may not
+  // name. `tests/boundaries.test.ts` asserts the same shape from the module
+  // graph, so deleting a block here still fails the suite.
   //
   // `no-restricted-imports` options replace rather than merge across config
   // objects, exactly like `no-restricted-syntax` (see NO_EXPORT_STAR above).
-  // The blocks match disjoint file sets on purpose, so none of them can silently
-  // drop another's patterns — which is why `src/app` and `src/server` are stated
-  // apart, and why the `src/ai` block excludes `src/ai/port.ts`, whose own block
-  // restates what it still wants. Keep a new block disjoint from them too.
+  // The blocks match disjoint file sets on purpose, so none of them can
+  // silently drop another's patterns. Keep a new block disjoint from them too.
   {
     name: "boundaries/core-is-framework-free-and-imports-no-zone",
     files: ["src/core/**/*.ts", "src/core/**/*.tsx"],
@@ -304,27 +310,48 @@ export default defineConfig([
         {
           patterns: [
             {
-              group: [
-                "next",
-                "next/**",
-                "react",
-                "react/**",
-                "react-dom",
-                "react-dom/**",
-              ],
+              group: [...BROWSER_APIS, ...UI_LIBRARIES],
               message:
-                "src/core/ holds the vocabulary the other zones are written in — a Result, a domain type, a pure function — and it stays free of the framework and of any vendor SDK so it survives a change of either. Put the framework-aware code in src/app/ or src/server/ and the vendor-aware code behind src/ai/.",
+                "src/core/ holds the vocabulary the other zones are written in — a domain type, a pure function — and it stays free of the browser APIs and of React, so it runs in a plain unit test and survives a change of either. Put the browser-aware code in src/platform/ and the UI in src/components/.",
             },
             {
               group: [
-                ...ZONE.ai,
-                ...ZONE.server,
-                ...ZONE.app,
-                ...ZONE.i18n,
+                ...ZONE.entrypoints,
+                ...ZONE.background,
+                ...ZONE.content,
+                ...ZONE.components,
+                ...ZONE.platform,
+              ],
+              message:
+                "src/core/ is the bottom of the import order, so it names no zone above it. A type only one zone needs belongs in that zone; one they share belongs here, with nothing imported to define it.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    name: "boundaries/platform-imports-only-core",
+    files: ["src/platform/**/*.ts", "src/platform/**/*.tsx"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: UI_LIBRARIES,
+              message:
+                "src/platform/ wraps the browser APIs for every context, the service worker included, which has no DOM to render into. Hand a screen what it needs as a StoredValue from src/core/ and let src/components/ do the rendering.",
+            },
+            {
+              group: [
+                ...ZONE.entrypoints,
+                ...ZONE.background,
+                ...ZONE.content,
                 ...ZONE.components,
               ],
               message:
-                "src/core/ is the bottom of the import order app → server → ai → core (and app → components → core), so it names no zone above it. A type only one zone needs belongs in that zone; one they share belongs here, with nothing imported to define it.",
+                "src/platform/ sits below src/background/, src/content/ and the entrypoints, which call it. Naming one of them from here inverts the order and pulls a context's code into every other context's bundle.",
             },
           ],
         },
@@ -332,43 +359,21 @@ export default defineConfig([
     },
   },
   {
-    name: "boundaries/ai-imports-only-core",
-    files: ["src/ai/**/*.ts", "src/ai/**/*.tsx"],
-    // `src/ai/port.ts` has its own block below, which restates these patterns
-    // alongside the adapter ban only the port carries.
-    ignores: ["src/ai/port.ts"],
+    name: "boundaries/background-runs-without-a-screen",
+    files: ["src/background/**/*.ts", "src/background/**/*.tsx"],
     rules: {
       "no-restricted-imports": [
         "error",
         {
           patterns: [
             {
-              group: [...ZONE.app, ...ZONE.server, ...ZONE.i18n, ...ZONE.components],
-              message: AI_LAYER_LOOKS_ONLY_DOWNWARD,
+              group: [...UI_LIBRARIES, ...ZONE.components],
+              message: NO_SCREEN_IN_A_WORKER,
             },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    name: "boundaries/port-does-not-know-its-adapters",
-    files: ["src/ai/port.ts"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
             {
-              // Unanchored on purpose: from the port the specifier is
-              // `./adapters/…`, which no `../`-anchored pattern can match.
-              group: ["**/adapters", "**/adapters/**"],
+              group: [...ZONE.entrypoints, ...ZONE.content],
               message:
-                "The port is the interface adapters implement, so it cannot depend on one. An import here inverts the dependency and makes the fake — or the next vendor — impossible to remove.",
-            },
-            {
-              group: [...ZONE.app, ...ZONE.server, ...ZONE.i18n, ...ZONE.components],
-              message: AI_LAYER_LOOKS_ONLY_DOWNWARD,
+                "src/background/ is the service worker's logic. It reaches a content script or a screen by message through src/platform/messaging.ts, never by import — they run in other processes, and an import would only bundle a copy of their code into the worker.",
             },
           ],
         },
@@ -376,17 +381,21 @@ export default defineConfig([
     },
   },
   {
-    name: "boundaries/i18n-is-a-leaf",
-    files: ["src/i18n/**/*.ts", "src/i18n/**/*.tsx"],
+    name: "boundaries/content-runs-without-a-screen",
+    files: ["src/content/**/*.ts", "src/content/**/*.tsx"],
     rules: {
       "no-restricted-imports": [
         "error",
         {
           patterns: [
             {
-              group: [...ZONE.app, ...ZONE.server, ...ZONE.ai, ...ZONE.components],
+              group: [...UI_LIBRARIES, ...ZONE.components],
+              message: NO_SCREEN_IN_A_WORKER,
+            },
+            {
+              group: [...ZONE.entrypoints, ...ZONE.background],
               message:
-                "src/i18n/ is a leaf: the page tree, the components and the handlers read it, and it reads nothing but src/core/ and its own catalogs. An import here inverts that and makes the locale list depend on the code that renders it.",
+                "src/content/ runs inside a web page. It reaches the service worker by message through src/platform/messaging.ts, never by import — an import would bundle the worker's code, and its storage writes, into every page the script matches.",
             },
           ],
         },
@@ -394,54 +403,7 @@ export default defineConfig([
     },
   },
   {
-    name: "boundaries/app-reaches-the-ai-layer-through-src-ai",
-    files: ["src/app/**/*.ts", "src/app/**/*.tsx"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            {
-              group: AI_LAYER_PRIVATE,
-              message: AI_LAYER_IS_PRIVATE,
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    name: "boundaries/server-reaches-ai-through-src-ai-and-never-app",
-    files: ["src/server/**/*.ts", "src/server/**/*.tsx"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            {
-              group: AI_LAYER_PRIVATE,
-              message: AI_LAYER_IS_PRIVATE,
-            },
-            {
-              group: [...ZONE.app, ...ZONE.components],
-              message:
-                "src/server/ sits below src/app/ in the import order app → server → ai → core. A handler or the composition root naming a page, a layout, a route module or a component inverts that: the App Router tree imports the server layer and renders the components, never the other way round.",
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    // The zone shadcn/ui copies components into, and the app's own components
-    // beside them. It sits between `src/app/` and `src/core/` — a component is
-    // handed its data and renders it — so it may name the framework, the UI
-    // libraries, `src/core/` and the `src/i18n/` leaf, and nothing else under
-    // `src/`. `server-only` is banned outright rather than reached through a
-    // zone pattern: a component importing it has decided it can never be a
-    // Client Component, which is the opposite of what this zone is for, and
-    // the marker's whole job is to fail the build far from the cause.
-    name: "boundaries/components-import-only-core-and-i18n",
+    name: "boundaries/components-render-what-they-are-handed",
     files: ["src/components/**/*.ts", "src/components/**/*.tsx"],
     rules: {
       "no-restricted-imports": [
@@ -449,13 +411,40 @@ export default defineConfig([
         {
           patterns: [
             {
-              group: [...ZONE.app, ...ZONE.server, ...ZONE.ai],
-              message: COMPONENTS_LOOK_ONLY_DOWNWARD,
+              group: BROWSER_APIS,
+              message:
+                "src/components/ renders what it is handed, so it runs under jsdom with no extension around it. Take the value as a prop — a StoredValue from src/core/ for something that changes — and let the entrypoint pass in what src/platform/ provides.",
             },
             {
-              group: ["server-only"],
+              group: [
+                ...ZONE.entrypoints,
+                ...ZONE.background,
+                ...ZONE.content,
+                ...ZONE.platform,
+              ],
               message:
-                "server-only pins a module to the server graph, and a component under src/components/ has to stay renderable from either graph. Put the server-side work in src/server/ and hand the component its result.",
+                "src/components/ sits beside src/platform/, not above it: the import order is entrypoints → components → core. A component naming storage, messaging or a context's logic is one no test can render without a browser.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // A screen is a separate page from the service worker and the content
+    // script. It sends them a message; importing their zone would bundle a
+    // second, disconnected copy of their code into the screen.
+    name: "boundaries/screens-message-the-worker",
+    files: ["src/entrypoints/*/**/*.ts", "src/entrypoints/*/**/*.tsx"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [...ZONE.background, ...ZONE.content],
+              message:
+                "A popup or options page reaches the service worker by message through src/platform/messaging.ts. Importing src/background/ or src/content/ bundles a copy of that code into the page, where it runs disconnected from the real worker.",
             },
           ],
         },
@@ -532,7 +521,7 @@ export default defineConfig([
   },
   {
     name: "boundaries/private-trees-are-not-importable",
-    files: ["tests/**/*.ts", "tests/**/*.tsx", "scripts/**/*.mjs"],
+    files: ["tests/**/*.ts", "tests/**/*.tsx", "e2e/**/*.ts", "scripts/**/*.mjs"],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -553,21 +542,6 @@ export default defineConfig([
                 "@/internal/**",
               ],
               message: INTERNAL_IS_PRIVATE,
-            },
-            {
-              // The zone equivalent, for the trees outside `src/`: an adapter
-              // is private to the AI layer, and a test asserts against it
-              // through `src/ai/index.ts` — which is what makes the contract
-              // suite in tests/ai-port.test.ts run unchanged against whichever
-              // adapter src/ai/index.ts publishes.
-              group: [
-                "**/src/ai/adapters",
-                "**/src/ai/adapters/**",
-                "@/ai/adapters",
-                "@/ai/adapters/**",
-              ],
-              message:
-                "src/ai/adapters/ is private to the AI layer: import what src/ai/index.ts publishes instead.",
             },
           ],
         },

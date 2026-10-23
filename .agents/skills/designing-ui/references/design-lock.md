@@ -2,20 +2,22 @@
 
 Two procedures `designing-ui` points at: how to research a direction (or a screen with
 no precedent) when no research skill or tool is installed, and how to compute the
-contrast ratio of a token pair from `src/app/globals.css`.
+contrast ratio of a token pair from `src/assets/globals.css`.
 
 ## Research, when there is no `refero-design`
 
-Nothing below needs a named skill, an MCP server, or a browsing tool. A session that can
-open web pages uses them; one that cannot asks the owner for the names and links, and
-still does the writing itself.
+Nothing below needs a named skill, a research service, or a browsing tool. A session
+that can open web pages uses them; one that cannot asks the owner for the names and
+links, and still does the writing itself.
 
 1. **Start from the product, not the palette.** Read the product description in
-   AGENTS.md, once it has one, or ask the owner: who uses the app, what the main screen
-   is for, and what the app must never feel like. Every later choice is judged against
-   that answer, not against taste.
+   AGENTS.md, once it has one, or ask the owner: who uses the extension, what the popup
+   is for, and what the extension must never feel like. Every later choice is judged
+   against that answer, not against taste.
 2. **Collect three to five references in the same category** — shipped products a user
-   of this app would also use, not concept shots or a gallery of mockups. For each,
+   of this extension would also use, other extensions first and then the sites it works
+   beside; not concept shots or a gallery of mockups. A popup is judged at its real
+   size, so look at each reference's popup rather than its store screenshots. For each,
    write one line on what to keep and one on what to leave.
 3. **Pick one primary reference and say why.** It is the one whose visual system fits
    the product's job, which is not always the most attractive one. A second reference

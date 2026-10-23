@@ -1,8 +1,5 @@
-import { createRequire } from "node:module";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-
 import { defineConfig } from "vitest/config";
+import { WxtVitest } from "wxt/testing/vitest-plugin";
 
 // Without this, a fixture suite written to fail is collected as one of this
 // repository's own tests.
@@ -16,24 +13,16 @@ const fixtures = "tests/fixtures/**";
 // because each drives a pure-function module under scripts/lib/ directly and
 // touches nothing else.
 //
-// The four boundary suites — ai-layer-removal, ai-vendor-swap, boundaries,
-// placeholders — are listed for the same reason workflows.test.ts is: they
+// The two boundary suites — boundaries and placeholders — are listed for the
+// same reason workflows.test.ts is: they
 // assert against files on disk rather than against imported code, walking
 // whole trees to do it. They are fast today, but their cost scales with the
 // repository rather than with what they import, which is exactly the case
 // the short unit budget is not meant to cover.
 const automationTests = [
   "tests/agent-tiers.test.ts",
-  // The two LLM suites read committed fixtures from disk, and ai-port.test.ts
-  // additionally reaches the provider under `LLM_RECORD=1` — a real network
-  // call, which no 5 s budget should have to accommodate.
-  "tests/ai-layer-removal.test.ts",
-  "tests/ai-openrouter.test.ts",
-  "tests/ai-port.test.ts",
-  "tests/ai-vendor-swap.test.ts",
   "tests/apply-ruleset.test.ts",
   "tests/boundaries.test.ts",
-  "tests/braces-patch.test.ts",
   "tests/check-staged.test.ts",
   "tests/ci-sync.test.ts",
   "tests/ci-watch.test.ts",
@@ -42,12 +31,11 @@ const automationTests = [
   "tests/labels.test.ts",
   "tests/lefthook-merge-guard.test.ts",
   "tests/lefthook-partial-stage.test.ts",
-  "tests/messages.test.ts",
+  "tests/locales.test.ts",
   "tests/node-tools.test.ts",
   "tests/placeholders.test.ts",
   "tests/repo-tree.test.ts",
   "tests/ruleset-contexts.test.ts",
-  "tests/server-env.test.ts",
   "tests/skills-frontmatter.test.ts",
   "tests/sync-agents.test.ts",
   "tests/sync-labels.test.ts",
@@ -57,60 +45,30 @@ const automationTests = [
 ];
 
 // The one suite that needs `pnpm build`'s output on disk before it can run at
-// all: it starts the built application with `next start` and asserts over
-// HTTP. That is why it is its own project rather than another entry in
-// `automationTests` — the default run (`pnpm test`, `pnpm test:coverage`, and
-// ci.yml's `test` job) has no build to serve, and a suite that quietly built
-// one for itself would pay for a second build in every workflow. It refuses to
-// run against a missing or stale build instead, so the build stays the
-// caller's to do exactly once. `pnpm run test:smoke` is what runs it, from
-// `check:source` and from ci.yml's `static` job immediately after `Build`; the
-// default scripts name only unit, component and automation. Naming the file
-// here is still what keeps it out of `unit` below, whose glob would otherwise
-// collect it on a 5-second budget.
-const smokeTests = ["tests/server-smoke.test.ts"];
-
-// `server-only` is a build-time marker rather than a runtime module: its only
-// entry throws on import, and a React Server Components bundler never loads it
-// because the package's `react-server` export condition points at an empty
-// file instead. Nothing outside such a bundler resolves that condition, so a
-// test importing anything under `src/server/` would fail on the marker rather
-// than on the behavior it asserts. Point the runner at the very file the RSC
-// graph gets. Vite's own condition options do not reach it — the package is
-// externalised and loaded by Node — and `server-only/empty.js` is not a
-// subpath its `exports` map publishes, so the path is derived from the
-// resolved entry instead. This narrows what the runner resolves; it turns no
-// check off.
-const serverOnlyEmptyModule = path.join(
-  path.dirname(createRequire(import.meta.url).resolve("server-only")),
-  "empty.js",
-);
-
-// `tsconfig.json` declares `paths: { "@/*": ["./src/*"] }`, and Vite reads
-// none of it — `paths` is a type-checker instruction, not a resolver one. A
-// test importing `@/components/ui/button` would fail to resolve without this,
-// so the mapping is restated here against this file's own directory rather
-// than against the process cwd, which `pnpm exec vitest` does not guarantee.
-// `extends: true` on every project below is what carries it into all four.
-const srcDirectory = path.join(path.dirname(fileURLToPath(import.meta.url)), "src");
+// all: it reads `.output/chrome-mv3/manifest.json` and pins what a user
+// consents to at install time. That is why it is its own project rather than
+// another entry in `automationTests` — the default run (`pnpm test`,
+// `pnpm test:coverage`, and ci.yml's `test` job) has no build to read, and a
+// suite that quietly built one for itself would pay for a second build in every
+// workflow. It refuses to run against a missing build instead, so the build
+// stays the caller's to do exactly once. `pnpm run test:manifest` is what runs
+// it, from `check:source` and from ci.yml's `extension` job immediately after
+// `Build`. Naming the file here is still what keeps it out of `unit` below,
+// whose glob would otherwise collect it on a 5-second budget.
+//
+// The end-to-end suite under `e2e/` is Playwright's, not Vitest's, and no glob
+// here reaches it.
+const manifestTests = ["tests/manifest.test.ts"];
 
 export default defineConfig({
-  resolve: { alias: { "@": srcDirectory } },
+  // WxtVitest reads `wxt.config.ts` and gives every project below what a
+  // build would: the `@/` alias, the generated `#i18n` module, the
+  // `import.meta.env` values, and `browser` replaced by `fakeBrowser`, an
+  // in-memory implementation of the extension APIs that `writing-tests`
+  // describes resetting between tests.
+  plugins: [WxtVitest()],
   test: {
     environment: "node",
-    alias: { "server-only": serverOnlyEmptyModule },
-    server: {
-      deps: {
-        // `next` ships no `exports` map, so `next/server` — which
-        // `next-intl/middleware` imports, and `proxy.ts` therefore reaches —
-        // is only resolvable by a bundler's extension search, never by Node's
-        // ESM resolver. Letting Vite transform `next-intl` rather than handing
-        // it to Node is what makes that import resolve the way it does in a
-        // real build. This changes who resolves the module, not what is
-        // executed.
-        inline: [/next-intl/],
-      },
-    },
     // Cleanup is the runner's job, not each test's. A spy, a stubbed env var or
     // a stubbed global that outlives the test that created it turns a later
     // failure into a mystery whose cause is in a different file, and makes the
@@ -127,7 +85,7 @@ export default defineConfig({
     // where it lives: a new `.test.ts` file is unit by default, a `.test.tsx`
     // file needs a DOM and joins `component` instead, the explicit automation
     // list receives the long budget only after its I/O needs are known, and
-    // `smoke` is the one suite that cannot run without a build to serve. A
+    // `manifest` is the one suite that cannot run without a build to read. A
     // hung unit or component test (no I/O, so it can only be looping or
     // awaiting forever) is a bug that should be visible in seconds.
     // `coverage` below is unaffected by this split — Vitest collects and
@@ -142,7 +100,8 @@ export default defineConfig({
         test: {
           name: "unit",
           include: ["tests/**/*.test.ts"],
-          exclude: [...automationTests, ...smokeTests, fixtures],
+          exclude: [...automationTests, ...manifestTests, fixtures],
+          setupFiles: ["./tests/browser-setup.ts"],
           testTimeout: 5_000,
           hookTimeout: 5_000,
         },
@@ -151,15 +110,15 @@ export default defineConfig({
         extends: true,
         test: {
           name: "component",
-          // A React Client Component needs `document`/`window` to render, so
-          // this project alone runs under jsdom; `tests/**/*.test.ts` stays on
-          // the faster `node` environment inherited from the top level. An
-          // asynchronous Server Component is out of scope for both — see
-          // `writing-tests`.
+          // A React component needs `document`/`window` to render, so this
+          // project alone runs under jsdom; `tests/**/*.test.ts` stays on the
+          // faster `node` environment inherited from the top level. A
+          // `.test.ts` file that drives DOM code without React — the content
+          // script's — opts in with a `@vitest-environment jsdom` docblock.
           environment: "jsdom",
           include: ["tests/**/*.test.tsx"],
           exclude: [fixtures],
-          setupFiles: ["./tests/dom-setup.ts"],
+          setupFiles: ["./tests/browser-setup.ts", "./tests/dom-setup.ts"],
           // No I/O here either: rendering a component and querying the
           // result is the same budget as a unit test.
           testTimeout: 5_000,
@@ -181,14 +140,11 @@ export default defineConfig({
       {
         extends: true,
         test: {
-          name: "smoke",
-          include: smokeTests,
-          // Spawning a production server, waiting for it to listen, and
-          // asking it for a rendered page is the same order of cost as the
-          // automation project's subprocesses, so it gets the same budget
-          // rather than one nobody measured.
-          testTimeout: 120_000,
-          hookTimeout: 120_000,
+          name: "manifest",
+          include: manifestTests,
+          // Reading one JSON file from disk: a unit budget is plenty.
+          testTimeout: 5_000,
+          hookTimeout: 5_000,
         },
       },
     ],
@@ -208,29 +164,27 @@ export default defineConfig({
       // their own coverage.
       thresholds: {
         // The floor covers the zones whose code is this repository's own
-        // logic. `src/app/**` and the `.tsx` half of `src/components/**` are
-        // deliberately absent: they are Next.js entry points and rendered
-        // markup, and a floor they cannot meet would only teach the next
-        // author to move the number. What exercises them instead is
-        // `tests/server-smoke.test.ts`, which serves the built application
-        // and asks it for a page over HTTP. Nothing of that shows up here:
-        // coverage stops at the process boundary, so the v8 provider reports
-        // these files at whatever the in-process tests reach and no number
-        // below moves when the smoke suite passes. They stay inside `include`
-        // above, so they still report as a percentage — they simply have no
-        // floor to trip. This is a narrower threshold glob, not a
-        // `coverage.exclude` entry, which AGENTS.md forbids by name.
-        "src/{core,ai,server}/**": {
+        // logic. `src/entrypoints/**` and the `.tsx` half of
+        // `src/components/**` are deliberately absent: they are WXT entry
+        // points and rendered markup, and a floor they cannot meet would only
+        // teach the next author to move the number. What exercises them
+        // instead is the Playwright suite under `e2e/`, which loads the built
+        // extension into Chromium. Nothing of that shows up here: coverage
+        // stops at the process boundary. They stay inside `include` above, so
+        // they still report as a percentage — they simply have no floor to
+        // trip. This is a narrower threshold glob, not a `coverage.exclude`
+        // entry, which AGENTS.md forbids by name.
+        "src/{core,platform,background,content}/**": {
           lines: 80,
           functions: 80,
           statements: 80,
           branches: 80,
         },
         // `src/components/**` mixes rendered markup with plain logic — a
-        // hook, a formatter, a client for a JSON endpoint — and only the
-        // `.tsx` files have a rendering step to excuse them. The `.ts` files
-        // are held to the same floor as the zones above, so moving logic out
-        // of `src/server/` into a component module is not a way out of one.
+        // hook, a formatter — and only the `.tsx` files have a rendering step
+        // to excuse them. The `.ts` files are held to the same floor as the
+        // zones above, so moving logic out of `src/platform/` into a component
+        // module is not a way out of one.
         "src/components/**/*.ts": {
           lines: 80,
           functions: 80,

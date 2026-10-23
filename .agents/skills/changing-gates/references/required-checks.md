@@ -3,18 +3,23 @@
 `.github/rulesets/main.json` lists, under `required_status_checks`, the check names a
 pull request must report green before it can merge. Each `context` is a job's display
 name — `name:` when the job sets one, its id otherwise, with a matrix value expanded —
-matched as a plain string. The live ruleset on GitHub is a copy of that file, applied by
-hand with `pnpm repo:ruleset`; AGENTS.md's "GitHub settings a new repository must
-enable" holds what the ruleset protects and why it has no bypass actor.
+matched as a plain string. Read the file for the current list: it names ci.yml's jobs
+beside the jobs of the other pull-request workflows, and a job missing from it — CodeQL,
+the labeller — reports but does not block. The live ruleset on GitHub is a copy of that
+file, applied by hand with `pnpm repo:ruleset`; AGENTS.md's "GitHub settings a new
+repository must enable" holds what the ruleset protects and why it has no bypass actor.
 
 Three CI edits therefore move `main.json` in the same pull request:
 
 - **Renaming a job that is a required context**, including its matrix values. Update the
-  `context` to the new name.
-- **Gating a required job** with a job-level `if:`, a `paths:`/`paths-ignore:` or
-  `branches:` filter, a narrower `types:` list, or a move behind a reusable workflow. A
-  required check has to report on every pull request, so either drop it from `main.json`
-  or keep the job ungated.
+  `context` to the new name — renaming ci.yml's `extension` job away from
+  `Build and end-to-end` changes the string GitHub reports, and so does changing the
+  `test` job's `name:` template, which every matrix value is expanded into.
+- **Gating a required job** with a job-level `if:` — `security-audit.yml`'s audit job is
+  gated off pull requests, which is why it is not a required context — a
+  `paths:`/`paths-ignore:` or `branches:` filter, a narrower `types:` list, or a move
+  behind a reusable workflow. A required check has to report on every pull request, so
+  either drop it from `main.json` or keep the job ungated.
 - **Adding a job that should block merges.** A new always-on job is not required until
   `main.json` names it; decide which it is and say so in the pull request body.
 

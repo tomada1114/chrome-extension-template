@@ -73,7 +73,7 @@ ones. That is what keeps `steps:` written at its own column from reading as a jo
 no steps, and it is why a fix for one such blind spot belongs in `blockOf` rather than
 in the caller that noticed it.
 
-Those rules hold for **every** workflow this repository ever gains, a deploy workflow
+Those rules hold for **every** workflow this repository ever gains, `release.yml`
 included: the suite runs `lintWorkflow` over whatever `.github/workflows/` contains. Two
 lists in that file are exact and only a human edits them.
 
@@ -81,9 +81,9 @@ lists in that file are exact and only a human edits them.
   compared with `toEqual`, so a new workflow file fails the suite until it is added
   there. That failure is the review prompt, not an obstacle to route around.
 - The writers list in "grants a write scope only where the job cannot do its work
-  without one" is `["codeql.yml", "pr-label.yml"]` today. A workflow carrying any
-  `: write` scope has to join it — a deploy workflow that pushes, tags, or comments
-  included.
+  without one" names every workflow that holds a `: write` scope, `release.yml` among
+  them for attaching the packages to a GitHub release. A workflow carrying any new
+  `: write` scope has to join it — one that pushes, tags, or comments included.
 
 The judgment half no test encodes:
 
@@ -197,7 +197,7 @@ Two properties are worth knowing before relying on it or editing it:
   continuing a JavaScript object or type takes the site back out. It is the one place
   the key's shape decides anything, and the cost comes with it: a bare eight-character
   placeholder under such a key is blocked too, and the way past that is an empty value,
-  the convention `.env.example` already follows.
+  the convention an env example file follows.
 - What the rule therefore does **not** cover: a secret under eight characters; one
   mixing only two character classes, which includes a lower-case word with digits stuck
   on the end unless it sits under an upper snake case key; one holding a space or a
@@ -212,75 +212,80 @@ Two properties are worth knowing before relying on it or editing it:
 
 ## Tool configs
 
-Each of `eslint.config.mjs`, `tsconfig.json`, `vitest.config.ts`, `.prettierrc.json` and
-`next.config.ts` holds its own current values — read the file rather than a copy of a
-rule written elsewhere. A PR changing one owes three things in its body: which rule or
-option moved, why, and what now passes or newly fails that did not before. AGENTS.md
-governs whether the change is allowed at all; this skill does not restate that.
+Each of `eslint.config.mjs`, `tsconfig.json`, `vitest.config.ts`,
+`playwright.config.ts`, `wxt.config.ts` and `.prettierrc.json` holds its own current
+values — read the file rather than a copy of a rule written elsewhere. A PR changing one
+owes three things in its body: which rule or option moved, why, and what now passes or
+newly fails that did not before. AGENTS.md governs whether the change is allowed at all;
+this skill does not restate that.
 
 Traps that have cost time here:
 
 - In `eslint.config.mjs`, `no-restricted-syntax` and `no-restricted-imports` **replace**
   their options across config objects rather than merging. A narrower block that sets
   either rule silently switches off every entry it does not restate — which is why
-  `NO_ENUM` and `NO_EXPORT_STAR` are shared constants and why the `boundaries/*` blocks
-  match disjoint file sets. Keep a new block disjoint from them, or restate what it
-  still wants.
-- Anchor a zone pattern with a leading `../`. Unanchored, `**/server` also matches the
-  package subpath `next-intl/server`, which `src/i18n/request.ts` imports today;
-  `../**/server` cannot match any bare specifier. Same shape for `../**/app` against
-  `next/app`. `no-restricted-imports` matches this specifier text through the `ignore`
-  package rather than resolving it, and `ignore` treats a leading `./` as a different
-  string from a leading `../` — so `./../server` is invisible to `../**/server` even
-  though it resolves to the same module. Every `ZONE` entry and `AI_LAYER_PRIVATE`
-  therefore carries a `./../**` twin of each `../**` pattern; a bare specifier still
-  cannot start with `./..`, so the twin is exactly as safe as the pattern it doubles.
+  `NO_ENUM`, `NO_EXPORT_STAR` and `NO_HTML_STRINGS` are shared constants and why the
+  `boundaries/*` blocks match disjoint file sets. Keep a new block disjoint from them,
+  or restate what it still wants.
+- Anchor a zone pattern with a leading `../`. Unanchored, `**/content` would also match
+  a package subpath of that name; `../**/content` cannot match any bare specifier.
+  `no-restricted-imports` matches specifier text through the `ignore` package rather
+  than resolving it, and `ignore` treats a leading `./` as a different string from a
+  leading `../` — so `./../content` is invisible to `../**/content` even though it
+  resolves to the same module. `zonePatterns()` therefore emits a `./../**` twin of each
+  `../**` pattern; a bare specifier still cannot start with `./..`, so the twin is
+  exactly as safe as the pattern it doubles.
 - The `@/*` alias `tsconfig.json` declares is a third spelling of the same module, and
   it needs no anchor: no bare package name can start with `@/`, since an empty scope is
   not legal. It still needs its own entry — a zone left without an `@/` twin is a
   boundary the alias walks straight through — which is why `zonePatterns()` generates
-  all six forms per zone and `AI_LAYER_PRIVATE` carries an `!@/ai/index` exemption of
-  its own. A resolver added later (a bundler, a test runner) reads neither `paths` nor
-  this config, and has to be told about the alias separately, the way
-  `vitest.config.ts`'s `resolve.alias` is.
-- A `group` accepts `!` negations, and the **last matching entry wins**. That is how
-  `AI_LAYER_PRIVATE` states the AI layer's surface as an allow-list —
-  `["../**/ai/**", "./../**/ai/**", "!../**/ai/index", "!./../**/ai/index"]` — rather
-  than a deny-list naming each private module, which would go stale the next time
-  something lands under `src/ai/`. Both patterns must come before both negations, since
-  the `./../` twin needs its own exemption too.
+  all six forms per zone. A resolver reads neither `paths` nor this config: WXT resolves
+  the alias for the build, and `WxtVitest` in `vitest.config.ts` hands the same alias to
+  every test project.
+- The browser-API and UI-library groups (`BROWSER_APIS`, `UI_LIBRARIES`) are package
+  name lists. A new package that reaches a browser API or renders UI is added to the
+  matching list in the same change, or `core` and `components` can import it unseen.
 - `eslintConfigPrettier` must stay the last element of the exported array. Anywhere else
   it stops turning off the stylistic rules that would fight Prettier, and the two gates
   then disagree about the same file.
-- `eslint-config-next` states its rule blocks against `**/*`; this config re-scopes each
-  to the `src/` tree on the way in. Spreading a new shared config in unscoped puts
-  framework rules on `scripts/**` and `tests/**`.
-- The named blocks are the map: `src/shared-syntax`, `src/size-budget`,
-  `public-api/explicit-surface`,
-  `boundaries/core-is-framework-free-and-imports-no-zone`,
-  `boundaries/ai-imports-only-core`, `boundaries/port-does-not-know-its-adapters`,
-  `boundaries/i18n-is-a-leaf`, `boundaries/app-reaches-the-ai-layer-through-src-ai`,
-  `boundaries/server-reaches-ai-through-src-ai-and-never-app`,
-  `boundaries/components-import-only-core-and-i18n`,
+- A shared config spread in as published applies to every file the config sees.
+  `src/react-hooks` re-scopes `eslint-plugin-react-hooks` to `src/` on the way in;
+  spreading a new shared config unscoped puts its rules on `scripts/**`, `tests/**` and
+  `e2e/**`.
+- The named blocks are the map: `src/no-dynamic-code`, `src/react-hooks`,
+  `src/shared-syntax`, `public-api/explicit-surface`, `src/size-budget`,
+  `src/entrypoints-stay-thin`, the six `boundaries/*` zone blocks,
   `boundaries/private-trees-are-not-importable`, `automation/node-scripts`,
-  `tests/vitest-rules`, `tests/relaxations`. Seven of the `boundaries/*` blocks are one
-  import order written per zone, so they match disjoint file sets by construction; the
-  eighth protects private trees from `tests/` and `scripts/`. Name a new block the same
-  way — the name is what a reader, and ESLint's own config inspector, has to identify it
-  by.
+  `tests/vitest-rules` and `tests/relaxations`. The six zone blocks are one import order
+  written per zone, so they match disjoint file sets by construction; the private-trees
+  block protects `src/internal/` from `tests/`, `e2e/` and `scripts/`. Name a new block
+  the same way — the name is what a reader, and ESLint's own config inspector, has to
+  identify it by.
 - `tests/boundaries.test.ts` asserts those same edges from the module graph, and it pins
   zones rather than files. An exhaustive list of the modules under `src/` failed on
   every legal new file, which teaches its reader to edit the meta-test until the day
   that edit hides something real; a table of zones fails only on a change that needs a
   boundary decision — a new zone, or a second module at the root of `src/`.
 - `vitest.config.ts` runs four projects — `unit`, `component` (jsdom), `automation`,
-  `smoke` — and coverage is collected once for the whole run, never per project. `smoke`
-  is omitted from the positive `unit`, `component`, `automation` lists in `test`,
-  `test:coverage`, `test:watch` and `test:related`, because it serves `pnpm build`'s
-  output and there is none in ci.yml's `test` job. Which project a file joins, and the
-  value of any threshold, are `placing-tests`. What belongs here is that `extends: true`
-  is what carries the shared `allowOnly`/restore/unstub settings into a project: a
-  hand-written project object without it drops them silently.
-- `next.config.ts` is a gate as well as a build config: `agentRules: false` is what
-  stops `next dev` appending to AGENTS.md behind the author. Removing it makes a
-  hand-written source of truth a tool rewrites.
+  `manifest` — and coverage is collected once for the whole run, never per project.
+  `manifest` is omitted from the positive `unit`, `component`, `automation` lists in
+  `test`, `test:coverage`, `test:watch` and `test:related`, because it reads
+  `pnpm build`'s output and there is none in ci.yml's `test` job. Which project a file
+  joins, and the value of any threshold, are `placing-tests`'. What belongs here is that
+  `extends: true` is what carries the shared `allowOnly`/restore/unstub settings into a
+  project — a hand-written project object without it drops them silently — and that
+  `WxtVitest()` is what gives every project `fakeBrowser`, the alias and the generated
+  `#i18n` module; removing it breaks every test that imports `src/platform/`.
+- `playwright.config.ts` loads the built extension and never builds, keeping the same
+  split as the manifest project. `forbidOnly` is the `e2e/` counterpart of
+  `allowOnly: false`; `retries` is non-zero only under `CI`, and raising it is a flaky
+  spec hidden rather than fixed. The fixture launches the `chromium` channel because
+  branded Chrome ignores `--load-extension` (the config's own comment); switching
+  channels makes every spec fail to find the extension.
+- `wxt.config.ts` is a gate as well as a build config. `imports: false` is what keeps
+  every edge an explicit import the two boundary checks can see — turning auto-imports
+  on lets an entrypoint reach `browser` or `storage` without naming it.
+  `webExt.keepProfileChanges: false` is what keeps `pnpm dev` off the developer's own
+  profile. `manifest.permissions` and every other consent-surface field are not this
+  skill's to change: **REQUIRED:** `changing-permissions`, and `tests/manifest.test.ts`
+  pins the result.

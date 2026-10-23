@@ -152,8 +152,8 @@ knowingly red baseline has to show its work.
   into the main `.git/worktrees/<name>`. Any tool that assumes a `.git/` directory can
   misbehave; hook installers (husky, lefthook) are the common ones, and hooks themselves
   are shared repo-wide rather than per-worktree.
-- **Build and type-check caches** (`.next`, `dist`, `__pycache__`, anything keyed by
-  absolute path) start cold. First run in each worktree is slower.
+- **Build and type-check caches** (`.output`, `.wxt`, `dist`, `__pycache__`, anything
+  keyed by absolute path) start cold. First run in each worktree is slower.
 
 ## Failure modes that look like the issue's fault
 

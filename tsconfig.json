@@ -2,26 +2,22 @@
   "compilerOptions": {
     "target": "ES2023",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
-    // Next.js compiles through its own bundler, so module specifiers resolve
-    // the way a bundler resolves them, not the way Node does. `jsx`,
-    // `esModuleInterop`, `resolveJsonModule` and `incremental` below are
-    // likewise values `next build` requires: it rewrites this file when one of
-    // them is missing or different, so they are written out here rather than
-    // discovered as an unexplained diff after a build.
+    // WXT bundles through Vite, so module specifiers resolve the way a bundler
+    // resolves them, not the way Node does.
     "module": "ESNext",
     "moduleResolution": "bundler",
     // shadcn/ui components are copied into this repository carrying
     // `@/components/...` imports, so the alias is what lets that generated
-    // code compile unedited. `baseUrl` is deliberately unset — TypeScript 5+
-    // resolves `paths` against this file's own directory — because setting it
-    // would also make every bare specifier resolvable as a path from the
-    // project root. Two other resolvers have to be told the same thing by
-    // hand: `vitest.config.ts`'s `resolve.alias` (Vite never reads `paths`)
-    // and `eslint.config.mjs`'s zone patterns, which match specifier text and
-    // so need an `@/` twin of every `../` one.
-    "paths": { "@/*": ["./src/*"] },
+    // code compile unedited. WXT resolves `@` to `src/` at build time on its
+    // own; `vitest.config.ts` gets it from the WxtVitest plugin and
+    // `eslint.config.mjs` matches specifier text, so it carries an `@/` twin
+    // of every zone pattern. `#i18n` is the typed catalog module
+    // `@wxt-dev/i18n` generates into `.wxt/` during `wxt prepare`.
+    // `baseUrl` is deliberately unset — TypeScript 5+ resolves `paths` against
+    // this file's own directory — because setting it would also make every
+    // bare specifier resolvable as a path from the project root.
+    "paths": { "@/*": ["./src/*"], "#i18n": ["./.wxt/i18n/index.ts"] },
     "jsx": "react-jsx",
-    "plugins": [{ "name": "next" }],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
@@ -38,7 +34,6 @@
     "allowUnusedLabels": false,
     "esModuleInterop": true,
     "resolveJsonModule": true,
-    "incremental": true,
     "skipLibCheck": true,
     // Closes the path where a package in node_modules substitutes its own
     // standard library for TypeScript's built-in lib files.
@@ -54,17 +49,18 @@
   "include": [
     "src",
     "tests",
+    "e2e",
     "scripts",
     ".agents/skills",
     ".claude/skills",
     "*.ts",
     "*.mts",
     "*.mjs",
-    // Route and page types Next.js generates into the (gitignored) build
-    // directory. Absent before the first build, which an `include` glob
-    // tolerates.
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
+    // The ambient types `wxt prepare` generates (gitignored): `import.meta.env`,
+    // the typed `browser.i18n` keys and the `#i18n` module. `prepare` in
+    // package.json regenerates them on every install, so a fresh clone
+    // type-checks without a build first.
+    ".wxt/wxt.d.ts"
   ],
   // `.claude/skills/` is a generated, committed mirror of `.agents/skills/`
   // (`pnpm agents:sync`): every skill lives at `.claude/skills/<name>/...`,

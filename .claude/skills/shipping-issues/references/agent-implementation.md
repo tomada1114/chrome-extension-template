@@ -52,8 +52,8 @@ Likely files: {paths from step 2's triage, or — when step 2 was skipped on a
 Project conventions: read {workdir}/AGENTS.md (and the host's own
 instruction file, if any) before writing code.
 Decisions already made: {anything step 2/2b resolved, so it is not re-opened}
-Verification command: {verify_command, from step 3's smoke run — if that
-                        smoke run found none, say so explicitly here rather
+Verification command: {verify_command, from step 3's baseline run — if that
+                        baseline run found none, say so explicitly here rather
                         than asking the sub-agent to locate one}
 </context>
 

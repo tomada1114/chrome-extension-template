@@ -2,44 +2,45 @@
 name: writing-typescript
 description: >
   Use when writing or reviewing TypeScript under src/** (.ts or .tsx): narrowing unknown
-  instead of any, `satisfies` vs `as`, a type guard, interface vs type, an exhaustive
-  switch over a union, inline `import type` under verbatimModuleSyntax, why `enum` is
-  rejected (no-restricted-syntax), what a zone surface like src/ai/index.ts may export,
-  annotating a return type or a generic boundary, hitting noUncheckedIndexedAccess,
-  exactOptionalPropertyTypes or noPropertyAccessFromIndexSignature, placing a new
-  constant, keeping src/core pure, or fixing a logic bug in an existing src/ function.
+  read back from storage or a message instead of any, `satisfies` vs `as`, a type guard,
+  interface vs type, an exhaustive switch over a union, inline `import type` under
+  verbatimModuleSyntax, why `enum` and `export *` are rejected, annotating a return type
+  or a generic boundary, noUncheckedIndexedAccess, exactOptionalPropertyTypes or
+  noPropertyAccessFromIndexSignature, placing a constant, keeping src/core pure, state
+  that must survive a service-worker restart, or a logic bug in a src/ function.
 ---
 
 # Writing TypeScript
 
 **Owns:** type-system judgment, naming, constant placement, and what keeps `src/core/**`
 pure, inside a module under `src/**`. **Does not own:** the shape of an error class and
-the `ERR_*` code vocabulary (`designing-errors`); which file a page, a handler or a
-client component belongs in (`building-app-routes`); compile-time assertions with
-`expectTypeOf` (`type-testing`); the `.mjs` files under `scripts/`
-(`writing-repo-scripts`).
+the `ERR_*` code vocabulary (`designing-errors`); which context and entrypoint a piece
+of logic belongs in (`building-entrypoints`); a stored key's declaration and migration
+(`managing-storage`); compile-time assertions with `expectTypeOf` (`type-testing`); the
+`.mjs` files under `scripts/` (`writing-repo-scripts`).
 
 ## Naming and constants
 
 - An error `code` string is not a naming decision made here — **REQUIRED:**
   `designing-errors` owns the `ERR_*` vocabulary for both `src/` and `scripts/`.
-- Keep a constant next to the code that reads it. `OUTPUT_LANGUAGE_BY_LOCALE` and
-  `STATUS_BY_LLM_CODE` both sit in `src/server/handlers/ask.ts` because that handler is
-  the only module that reads either. Do not create a shared `constants.ts` grab-bag that
-  forces unrelated modules to import each other.
+- Keep a constant next to the code that reads it. For example, `BADGE_MAX` and
+  `BADGE_OVERFLOW` sit in `src/core/counter.ts` beside `formatBadge`, the one function
+  that reads them. Do not create a shared `constants.ts` grab-bag that forces unrelated
+  modules to import each other.
 
 ## Boundary types: unknown, any, and assertions
 
-- Take `unknown` at an untyped boundary and narrow it before use. A parsed request body
-  (`let body: unknown = await request.json()`), a caught error, a value handed in for a
-  schema to validate — `FakeLlmPortOptions.response` is `unknown` on purpose, so a value
-  that does _not_ match the caller's schema stays expressible. `any` disables checking
-  for everything downstream of the boundary, not just at it.
+- Take `unknown` at an untyped boundary and narrow it before use. A value read back from
+  storage that another release or device may have written, a message payload from a
+  content script, a caught error, the result of `JSON.parse`. For example,
+  `src/platform/storage.ts` declares the synced settings item as `defineItem<unknown>`
+  and hands every read to `parseSettings(value: unknown)`, which narrows field by field.
+  `any` disables checking for everything downstream of the boundary, not just at it.
 - Prefer `satisfies` to `as` on a typed literal: `satisfies` keeps excess-property and
   missing-property checking, `as` silences both. `as const satisfies Record<K, V>` also
-  keeps the literal keys, which is what makes a table exhaustive against a union —
-  `STATUS_BY_LLM_CODE` fails to compile when a code is added rather than falling through
-  to a default status.
+  keeps the literal keys, which is what makes a table exhaustive against a union: a
+  `Record<Code, Label>` written that way fails to compile when a code is added rather
+  than falling through to a default.
 - A type assertion (`as T`) changes only the compile-time type — it provides zero
   runtime safety. Reach for a type guard (`value is T`) when narrowing on runtime shape,
   and keep any assertion that survives review local and non-exported.
@@ -72,9 +73,10 @@ client component belongs in (`building-app-routes`); compile-time assertions wit
   asserting it away.
 - `exactOptionalPropertyTypes` makes an absent property and an explicit `undefined`
   distinct types. An options interface whose properties are genuinely omissible declares
-  them `readonly` and `?:` — `LlmRequest.signal` and every field of `FakeLlmPortOptions`
-  are the shape to copy. An internal argument whose omission would be a bug takes a
-  required `T | undefined` instead, so a caller cannot drop it by accident.
+  them `readonly` and `?:`. A property whose omission would be a bug takes a required
+  `T | undefined` instead, so a caller cannot drop it by accident — for example,
+  `CountPanelProps.count` is `number | undefined`, with `undefined` meaning "still
+  loading", and every caller has to say which it is passing.
 - The same flag meets React props: passing `prop={undefined}` explicitly does not
   satisfy `readonly prop?: string`. When a caller really does pass `undefined` — a value
   forwarded from a lookup, a prop threaded through a wrapper — widen that one prop to
@@ -86,8 +88,8 @@ client component belongs in (`building-app-routes`); compile-time assertions wit
   `readKey`/`readString` are the resolution used for parsed-JSON reads — see
   `writing-repo-scripts` for that rule itself.
 - Do not introduce `enum`. `eslint.config.mjs` blocks `TSEnumDeclaration` through
-  `no-restricted-syntax`, and the message there says why. A union of string literals
-  (`LlmErrorCode`) or an `as const` object is what replaces it.
+  `no-restricted-syntax`, and the message there says why. A union of string literals or
+  an `as const` object is what replaces it.
 
 ## Function boundaries and generics
 
@@ -99,11 +101,11 @@ client component belongs in (`building-app-routes`); compile-time assertions wit
   accidentally widen a generic that should stay preserved. **BACKGROUND:**
   `type-testing`.
 - Keep exported generics narrow: accept the widest reasonable input, return the
-  narrowest true output. `LlmPort.generate` is the worked example — it returns
-  `Promise<Result<z.infer<TSchema>, LlmError>>`, so a caller gets its own schema's type
-  back instead of a widened one. `ok<T>(value: T): Result<T, never>` in
-  `src/core/result.ts` is the same idea on the other branch: `never` keeps the value
-  assignable to a `Result<T, E>` for any `E` without the caller restating it.
+  narrowest true output. For example, `useStoredValue<T>(source: StoredValue<T>)`
+  returns `T | undefined`, so a caller gets its own value's type back instead of
+  `unknown`, and `ok<T>(value: T): Result<T, never>` in `src/core/result.ts` uses
+  `never` to keep the value assignable to a `Result<T, E>` for any `E` without the
+  caller restating it.
 - Let inference do the work inside a function body; reserve explicit annotations for
   boundaries (parameters, exported return types), not every local binding.
 
@@ -122,23 +124,24 @@ client component belongs in (`building-app-routes`); compile-time assertions wit
 
 ## What a module may import
 
-- `node:*` is not restricted anywhere under `src/`. `@types/node` is a devDependency and
-  `tsconfig.json` declares no `types` array, so the Node types are in scope, and
-  `eslint.config.mjs` names the protocol nowhere. No module under `src/` imports one
-  today, but that is a description of this tree, not a rule to defend — the restriction
-  older prose here claimed never existed in this repository.
-- What is real is the zone boundary. `src/core/**` may not import the framework or a
-  vendor SDK; `src/app/**` and `src/server/**` reach the AI layer only through
-  `src/ai/index.ts`; `src/ai/port.ts` may not import an adapter. AGENTS.md's
-  Architecture section states the direction and `eslint.config.mjs`'s `boundaries/*`
-  blocks carry the patterns, with `tests/boundaries.test.ts` asserting the same shape
-  from the module graph. Read those rather than a summary here.
-- A zone publishes through one file, and that file names every symbol: `src/ai/index.ts`
-  re-exports the port, its error vocabulary and one adapter by name. `export *` is
-  banned under `src/` (`no-restricted-syntax`), so what a zone above may reach is
-  exactly what a reviewer can read in that file's diff. Adding a symbol there is a
-  decision about the zone's surface, not a re-export detail — and reaching past it into
-  a private tree is what the boundary rules exist to stop.
+- `node:*` is not blocked by a lint rule under `src/`, and `@types/node` is in scope
+  because `tsconfig.json` declares no `types` array — but nothing under `src/` runs on
+  Node. Every module is bundled into a service worker, a page or a content script, none
+  of which has a Node builtin to import. The type being in scope is not a permission.
+- What is real is the zone boundary: `core` names no browser API and no React,
+  `components` names no browser API, `background` and `content` name no screen, and a
+  screen reaches the service worker by message. AGENTS.md's Architecture section states
+  the direction and `eslint.config.mjs`'s `boundaries/*` blocks carry the patterns, with
+  `tests/boundaries.test.ts` asserting the same shape from the module graph. Read those
+  rather than a summary here.
+- Auto-imports are off (`imports: false` in `wxt.config.ts`), so `browser`, `storage`
+  and every `define*` helper is imported by name from its `wxt/...` subpath. An import
+  the reader cannot see is an edge neither boundary check can see either.
+- A module names every symbol it exports. `export *` is banned under `src/`
+  (`no-restricted-syntax`), so what a zone offers the one above is exactly what a
+  reviewer can read in a diff, and a default export is reserved for the entrypoint files
+  WXT reads (`public-api/explicit-surface`). Adding an export is a decision about the
+  zone's surface, not a re-export detail.
 - A module that outgrows the per-file size budget in `eslint.config.mjs`'s
   `src/size-budget` block is a module doing more than one thing. Split it; the number is
   a ceiling, not a target, and raising it is what AGENTS.md rules out.
@@ -153,18 +156,27 @@ typecheck and every test.
   (`now: Date`, or `clock: () => Date` when one call needs several readings),
   randomness, configuration, and the result of any I/O arrive as arguments. So no
   `Date.now()`, argument-less `new Date()`, `Math.random()`, `crypto.randomUUID()`,
-  `process.env`, `fetch` or file read under `src/core/`.
-- The caller supplies them: a handler under `src/server/handlers/`, or the composition
-  root beside it, is where the clock is read, and `src/server/env.ts` stays the one
-  reader of `process.env`.
+  `import.meta.env`, `fetch`, a `browser.*` call or a storage read under `src/core/`.
+- The caller supplies them: the service-worker or content-script module that calls core
+  is where the clock is read and storage is awaited, and `import.meta.env` is read
+  outside core too. Everything it inlines ships in the zip, so it never holds a secret.
 - A tuning value — a threshold, a limit, a weight — lives in one exported value per
   concern, beside the module that consumes it, and is passed in rather than scattered as
   literals through a body, so a test hands in another value instead of patching the
-  module. For example,
-  `export const SCORING_TUNING = { … } as const satisfies ScoringTuning`.
+  module. For example, `BADGE_MAX` is the one limit `formatBadge` reads.
 - A state transition takes the current value and returns the next one, or an `err()`
   from `src/core/result.ts` when the move is not allowed. It never mutates its input;
-  declare state `readonly` so a mutation fails to compile.
+  declare state `readonly` so a mutation fails to compile. For example,
+  `nextCount(current)` answers the next count and leaves storing it to the caller.
+
+## State outlives nothing but storage
+
+The service worker is stopped whenever it idles and the popup is destroyed every time it
+closes, so a module-level `let` holding a value between events is lost without an error
+and comes back as its initial value. State that has to survive belongs in a key declared
+in `src/platform/storage.ts` (**REQUIRED:** `managing-storage`), read at the start of
+each event. A module-level constant is fine; a module-level cache is a bug that passes
+every unit test, because a test process never idles.
 
 Before reaching for an architectural pattern out of habit, read
 [references/patterns-not-adopted.md](references/patterns-not-adopted.md).

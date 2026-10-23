@@ -49,9 +49,9 @@ major, including a 0.x minor promoted to major.
 
 Treat a framework family as one reviewed unit:
 
-- `next` and `eslint-config-next` stay on the same version line.
 - `react`, `react-dom` and `@types/react` move together, with `@types/react-dom` when it
   is present.
+- `tailwindcss` and `@tailwindcss/vite` stay on the same version line.
 
 If open PRs leave a family split, complete it on the combined branch and list the exact
 companion packages and target ranges in the plan. Adding a package still needs the

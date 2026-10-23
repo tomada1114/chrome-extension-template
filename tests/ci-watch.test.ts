@@ -71,7 +71,7 @@ describe("ci_watch.sh without timeout or gtimeout", () => {
     const started = Date.now();
     const result = spawnSync(path.join(bin, "bash"), [script, "7", "--timeout", "2"], {
       encoding: "utf8",
-      // Next.js's types make NODE_ENV a required ProcessEnv key; the script ignores it.
+      // Some framework typings make NODE_ENV a required ProcessEnv key; the script ignores it.
       env: { PATH: bin, NODE_ENV: "test" },
       timeout: 20_000,
     });

@@ -53,18 +53,21 @@ gh pr list --head <branch> --state open --json number,url,title
 
 ## 2. The gate
 
-Run `pnpm check:source`, the full gate CI runs. It includes `next build` and the skill
-script tests, so it can outlast a foreground command timeout: on a host that can run a
-command in the background and report back when it exits, run it that way and wait for
-the report; otherwise give the call a timeout that covers a full build. Never poll it
-with a hand-rolled sleep loop.
+Run `pnpm check:source`, the full gate CI runs. It includes both extension builds, the
+manifest and end-to-end suites and the skill script tests, so it can outlast a
+foreground command timeout: on a host that can run a command in the background and
+report back when it exits, run it that way and wait for the report; otherwise give the
+call a timeout that covers a full build. Never poll it with a hand-rolled sleep loop.
 
 - **Any failure stops the PR.** Fix it on the branch, or report it. Never weaken a gate
-  to make the run pass (AGENTS.md's "Security and human approval").
-- **Then `git status --short` again.** Anything the gate rewrote — a formatted file, a
-  regenerated `next-env.d.ts` — means the branch differs from what was just judged.
-  Commit it (with the sign-off step 1 names) and run the gate again; a PR is opened only
-  from a tree the gate passed unchanged.
+  to make the run pass (AGENTS.md's "Security and human approval"). The end-to-end suite
+  needs Playwright's Chromium, which `pnpm e2e:browsers` installs once per machine; a
+  run that fails on a missing browser executable is that, not a red gate.
+
+- **Then `git status --short` again.** Anything the gate rewrote — a formatted file —
+  means the branch differs from what was just judged. Commit it (with the sign-off step
+  1 names) and run the gate again; a PR is opened only from a tree the gate passed
+  unchanged.
 
 Also run the narrowest check for what the branch touches, from AGENTS.md's "Validating a
 change" table, when the gate does not already run it — `pnpm agents:check` for a skill,
@@ -79,17 +82,18 @@ git diff origin/<default>...HEAD
 
 Read it for the things no gate decides. Each feeds a checklist item or the Summary:
 
-| In the diff                                                            | Then                                                                                                                                                |
-| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A new environment variable                                             | It is in `.env.example` and validated in `src/server/env.ts`, or the checklist item does not hold.                                                  |
-| A new UI string                                                        | It is in every catalog under `messages/`, or the item does not hold. **BACKGROUND:** `localizing-ui`.                                               |
-| A new entry in `package.json`'s dependencies                           | Stop unless a human already signed off on that package in this session; then state its reason in the body. **BACKGROUND:** `managing-dependencies`. |
-| A weakened gate (AGENTS.md's list: an `eslint-disable`, …)             | Stop. The PR waits until a human decides; it is not opened with the item unticked.                                                                  |
-| A contract change (AGENTS.md's "What is contract and what is private") | Name it in the Summary, in one line a caller can act on. An `ERR_*` code: **REQUIRED:** `designing-errors` for that line.                           |
-| A change that owes a document                                          | The document is changed on this branch, or the PR stops. **REQUIRED:** `updating-docs` decides whether one is owed.                                 |
+| In the diff                                                            | Then                                                                                                                                                       |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A new UI string                                                        | It is in every catalog under `src/locales/`, or the item does not hold. **BACKGROUND:** `localizing-ui`.                                                   |
+| A permission, host pattern or content-script match changed             | Stop unless a human signed off on that change in this session; then call it out and update `tests/manifest.test.ts`. **REQUIRED:** `changing-permissions`. |
+| A stored key's shape changed in `src/platform/storage.ts`              | Its `version` is bumped with a migration, or the item does not hold. **REQUIRED:** `managing-storage`.                                                     |
+| A new entry in `package.json`'s dependencies                           | Stop unless a human already signed off on that package in this session; then state its reason in the body. **BACKGROUND:** `managing-dependencies`.        |
+| A weakened gate (AGENTS.md's list: an `eslint-disable`, …)             | Stop. The PR waits until a human decides; it is not opened with the item unticked.                                                                         |
+| A contract change (AGENTS.md's "What is contract and what is private") | Name it in the Summary, in one line a caller can act on. An `ERR_*` code: **REQUIRED:** `designing-errors` for that line.                                  |
+| A change that owes a document                                          | The document is changed on this branch, or the PR stops. **REQUIRED:** `updating-docs` decides whether one is owed.                                        |
 
 A row that does not apply to the diff holds trivially; say so in the body rather than
-leaving the reader to guess ("No new environment variable").
+leaving the reader to guess ("No permission change").
 
 ## 4. Title
 

@@ -6,9 +6,16 @@ import { fileURLToPath } from "node:url";
 import { ESLint } from "eslint";
 import { getFileInfo } from "prettier";
 import ts from "typescript";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import vitestConfig from "../vitest.config.js";
+
+// This suite reads vitest.config.ts as data. Importing it runs `WxtVitest()`,
+// which loads WXT's whole build core — including its optional `web-ext`
+// runner, which this repository does not install — inside the test runner
+// rather than inside Vitest's own config loader. The plugin's output is not
+// what is asserted here, so it is replaced by an empty plugin list.
+vi.mock("wxt/testing/vitest-plugin", () => ({ WxtVitest: () => [] }));
 
 // The skills are authored under `.agents/skills/` and mirrored into
 // `.claude/skills/` by `pnpm agents:sync`. Both tools must therefore see the
@@ -44,24 +51,6 @@ function readKey(value: unknown, key: string): unknown {
     ? (value as Record<string, unknown>)[key]
     : undefined;
 }
-
-it("pins the effective React lint version to the declared runtime version", async () => {
-  const manifest: unknown = JSON.parse(
-    readFileSync(path.join(repoRoot, "package.json"), "utf8"),
-  );
-  const declared = readKey(readKey(manifest, "dependencies"), "react");
-  if (typeof declared !== "string") {
-    throw new TypeError("React must be declared.");
-  }
-  const majorMinor = /^\D*(\d+\.\d+)/.exec(declared)?.[1];
-  expect(majorMinor).toBeDefined();
-  const config: unknown = await eslint.calculateConfigForFile(
-    path.join(repoRoot, "src/app/[locale]/page.tsx"),
-  );
-  expect(readKey(readKey(readKey(config, "settings"), "react"), "version")).toBe(
-    majorMinor,
-  );
-});
 
 /** The `exclude` list of vitest.config.ts's `unit` project. */
 function unitProjectExclude(): readonly string[] {
@@ -130,14 +119,14 @@ describe("the .claude/skills ignore entry in eslint.config.mjs", () => {
 // Terminal output is the product of repository automation: a `.mjs` under
 // `scripts/` or inside a skill *is* a command, and printing is what it does.
 // Nothing under `src/` is, so a module there still cannot print as a side
-// effect of being imported — including the App Router entry points, which the
-// framework imports on every render.
+// effect of being imported — including the WXT entrypoints, which run in a
+// user's browser where a stray log is noise in someone else's console.
 describe("the automation-only no-console boundary in eslint.config.mjs", () => {
   it.each([
     ["a repository automation script", "scripts/clean.mjs", 0],
     ["an automation script inside a skill", `${source}/scripts/survey-prs.mjs`, 0],
-    ["an App Router page", "src/app/[locale]/page.tsx", 2],
-    ["an App Router layout", "src/app/[locale]/layout.tsx", 2],
+    ["a popup entrypoint", "src/entrypoints/popup/main.tsx", 2],
+    ["the service worker's logic", "src/background/index.ts", 2],
   ])("sets no-console to %s for %s", async (_label, relative, expected) => {
     const config = (await eslint.calculateConfigForFile(
       path.join(repoRoot, relative),
@@ -189,7 +178,14 @@ describe("the generated/ignored tree stays consistent across tooling", () => {
   // Build/test output nobody commits: .gitignore keeps it out of git
   // entirely, so there is nothing in it for ESLint, Prettier, or typos to
   // usefully check either.
-  const BUILD_OUTPUT = ["dist/", ".next/", "coverage/"];
+  const BUILD_OUTPUT = [
+    "dist/",
+    ".wxt/",
+    ".output/",
+    "coverage/",
+    "test-results/",
+    "playwright-report/",
+  ];
 
   // The opposite case: `.claude/skills/` IS tracked (AGENTS.md — both the
   // authored `.agents/skills/` and its generated mirror are committed real

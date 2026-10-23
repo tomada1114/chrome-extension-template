@@ -30,59 +30,47 @@ import { readText, repoRoot, walk } from "./repo-tree";
  * reintroducing either should fail here rather than ship. A token that
  * matches nothing simply contributes no rows to the inventory below.
  *
- * `tomada1114/nextjs-app-template` is not a blank like the others — it is
- * this template's real repository slug, and it names this template just as
- * literally as `my-package` does. A fork that keeps it points its CI badge
+ * `tomada1114/chrome-extension-template` is not a blank like the others — it
+ * is this template's real repository slug, and it names this template just as
+ * literally as `my-extension` does. A fork that keeps it points its CI badge
  * and its vulnerability-report links at someone else's repository. Only the
  * full slug is listed: a bare `tomada1114` would match
  * `tests/sync-labels.test.ts`'s `tomada1114/typescript-template` fixture
- * data, and a bare `nextjs-app-template` would produce a duplicate row per
- * file that carries the full slug.
+ * data.
  *
- * The last three are what a reader sees, which the package name and the slug
- * do not cover: a project that renamed everything machine-facing still greets
- * its visitors as this template. Two are the app's display name, one per
- * catalog language, together covering both the browser tab and the page
- * heading; the third is the one-line `description` metadata, which renders
- * into `<meta name="description">` and so into a search result and a link
- * preview. Coverage for the display name is per known
- * value, not per key: each entry is a catalog's current title string, so a
- * `messages/*.json` added later with its own translated title contributes no
- * row until that value is added to this list. The Japanese title and
- * description are needles AGENTS.md's Conventions allows a test to quote
- * verbatim: deriving them from `messages/ja.json` at runtime would make their
- * inventory rows self-fulfilling — they would still appear after a correct
- * rename, so the list could never empty.
- *
- * The home page's body copy — `HomePage.intro` and `HomePage.localeCount` in
- * each catalog — is deliberately absent. It is demo copy for a demo page a
- * project rewrites or deletes on day one, and `localizing-ui` quotes
- * `ja.json`'s `localeCount` as its worked example of plural categories, so a
- * needle for it would put inventory rows on a skill whose subject is ICU
- * plurals rather than this template's identity. `starting-an-app` sends a
- * renaming project to that copy by hand instead.
+ * The next four are what a user sees, which the package name and the slug do
+ * not cover: an extension that renamed everything machine-facing still
+ * installs as this template. Two are the extension's display name, one per
+ * catalog language — `extName`, which the manifest, the toolbar tooltip, both
+ * screens' titles and the store listing all read — and two are `extDescription`,
+ * the manifest description the extensions page and the store show. Coverage is
+ * per known value, not per key: a catalog added later contributes no row until
+ * its own value is added here. The Japanese values are needles AGENTS.md's
+ * Conventions allows a test to quote verbatim: deriving them from
+ * `src/locales/ja.json` at runtime would make their rows self-fulfilling.
+ * The display name also occurs inside each catalog's `content.marker` string,
+ * which a rename rewrites in the same file anyway.
  *
  * The last two entries are decisions the template leaves open on purpose:
- * the design direction and the product. `src/app/globals.css` ships stock
+ * the design direction and the product. `src/assets/globals.css` ships stock
  * shadcn/ui tokens and `designing-ui` an empty lock, both carrying this
  * marker, so a project that renamed everything still reports that its screens
- * are being built against a direction nobody chose. It is listed here rather
- * than in a suite of its own because this inventory is already the checklist
- * a new app works through, and a second list is one a new app never runs.
- * AGENTS.md's Product section carries the product marker until the new app
- * describes its purpose, core actions and non-goals, immediately after renaming.
+ * are being built against a direction nobody chose. AGENTS.md's Product
+ * section carries the product marker until the new extension describes its
+ * purpose, single purpose, core actions and non-goals, immediately after
+ * renaming.
  */
 const PLACEHOLDERS = [
-  "my-package",
+  "my-extension",
   "your-name",
   "Your Name",
   "you@example.com",
   "A short description.",
-  "tomada1114/nextjs-app-template",
-  "Next.js App Template",
-  "Next.js アプリテンプレート",
-  "An App Router skeleton.",
-  "App Router のひな形です。",
+  "tomada1114/chrome-extension-template",
+  "Chrome Extension Template",
+  "Chrome 拡張機能テンプレート",
+  "A Manifest V3 extension skeleton.",
+  "Manifest V3 拡張機能のひな形です。",
   "DESIGN DIRECTION: UNSETTLED",
   "PRODUCT: UNDESCRIBED",
 ] as const;
@@ -92,43 +80,43 @@ const PLACEHOLDERS = [
  * `<file>: <placeholder>` rows.
  *
  * @remarks
- * These seven files *are* the template's identity, so a placeholder in them is
- * intended, not a leak: they are what a new app rewrites first. Five carry the
- * repository's identity — the package name and description, the slug, the
- * copyright holder — and two the copy a visitor reads: the localized metadata
- * and `HomePage.title` keys in each catalog. Everything else in
- * the tree — the rest of `src/`, `tests/`, `scripts/`, the skills, the
- * workflows, `CONTRIBUTING.md`, `AGENTS.md` — must name no identity string,
- * so the rename is a bounded edit to seven files rather than a
- * repository-wide search that can miss one. Three of the rows are the
- * template's real repository slug rather than a blank, deliberately: the CI
- * badge and the two security-advisory links — the issue chooser's and
- * `SECURITY.md`'s — have to resolve *while this repository is the template*,
- * and a fork replaces them like any other row.
+ * These files *are* the template's identity, so a placeholder in them is
+ * intended, not a leak: they are what a new extension rewrites first. Five
+ * carry the repository's identity — the package name and description, the
+ * slug, the copyright holder — and the two catalogs carry what a user reads.
+ * Everything else in the tree — the rest of `src/`, `tests/`, `e2e/`,
+ * `scripts/`, the skills, the workflows, `CONTRIBUTING.md`, `AGENTS.md` — must
+ * name no identity string, so the rename is a bounded edit to these files
+ * rather than a repository-wide search that can miss one. `e2e/` in
+ * particular reads the strings it asserts from the catalogs. Three of the
+ * rows are the template's real repository slug rather than a blank,
+ * deliberately: the CI badge and the two security-advisory links have to
+ * resolve *while this repository is the template*, and a fork replaces them
+ * like any other row.
  *
  * The product and design-direction rows sit outside that count: AGENTS.md
- * carries the product marker; the stylesheet and both
- * copies of `designing-ui` carry the marker until a new app settles its
+ * carries the product marker; the stylesheet and both copies of
+ * `designing-ui` carry the design marker until a new extension settles its
  * direction, which `starting-an-app` sequences after the rename.
  */
 const EXPECTED_INVENTORY = [
   ".agents/skills/designing-ui/SKILL.md: DESIGN DIRECTION: UNSETTLED",
   ".claude/skills/designing-ui/SKILL.md: DESIGN DIRECTION: UNSETTLED",
-  ".github/ISSUE_TEMPLATE/config.yml: tomada1114/nextjs-app-template",
+  ".github/ISSUE_TEMPLATE/config.yml: tomada1114/chrome-extension-template",
   "AGENTS.md: PRODUCT: UNDESCRIBED",
   "LICENSE: Your Name",
   "README.md: A short description.",
   "README.md: Your Name",
-  "README.md: my-package",
-  "README.md: tomada1114/nextjs-app-template",
-  "SECURITY.md: tomada1114/nextjs-app-template",
-  "messages/en.json: An App Router skeleton.",
-  "messages/en.json: Next.js App Template",
-  "messages/ja.json: App Router のひな形です。",
-  "messages/ja.json: Next.js アプリテンプレート",
+  "README.md: my-extension",
+  "README.md: tomada1114/chrome-extension-template",
+  "SECURITY.md: tomada1114/chrome-extension-template",
   "package.json: A short description.",
-  "package.json: my-package",
-  "src/app/globals.css: DESIGN DIRECTION: UNSETTLED",
+  "package.json: my-extension",
+  "src/assets/globals.css: DESIGN DIRECTION: UNSETTLED",
+  "src/locales/en.json: A Manifest V3 extension skeleton.",
+  "src/locales/en.json: Chrome Extension Template",
+  "src/locales/ja.json: Chrome 拡張機能テンプレート",
+  "src/locales/ja.json: Manifest V3 拡張機能のひな形です。",
 ];
 
 /**
@@ -162,8 +150,10 @@ describe("the template's own identity strings", () => {
     "package.json",
     "CONTRIBUTING.md",
     "AGENTS.md",
-    "src/app/[locale]/page.tsx",
+    "src/entrypoints/popup/main.tsx",
     "src/core/result.ts",
+    "src/locales/en.json",
+    "e2e/content.spec.ts",
     "scripts/check-staged.mjs",
     ".github/workflows/ci.yml",
     ".agents/skills/changing-gates/SKILL.md",

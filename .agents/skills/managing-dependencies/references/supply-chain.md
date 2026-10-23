@@ -7,17 +7,17 @@ the file for the current values rather than trusting a number copied here.
 
 - `strictDepBuilds` plus `allowBuilds`: an install-time lifecycle script from a
   dependency nobody has ruled on fails the install **on purpose** — that is the intended
-  outcome, not a bug to route around. A Next.js dependency tree reaches several packages
-  that want to run one, so this is a case-by-case review now rather than a single
-  standing exception. Three questions settle an entry: what the script actually does
-  (download a binary, compile native code, probe for a prebuilt one); whether anything
-  this repository runs needs its result, or it belongs to a feature never turned on; and
-  whether the package already ships a prebuilt platform binary as an optional
-  dependency, making the script a fallback rather than the only path. `false` is as much
-  a decision as `true` — it records that the script was reviewed and refused, so the
-  next install failure is not answered with a reflexive `true`. Read the file's comments
-  for the ruling each entry carries; adding a `true` one carries the same review weight
-  as adding a new dependency.
+  outcome, not a bug to route around. Every entry is a separate ruling, and the next
+  package that wants a script gets its own review rather than a reflexive allowance.
+  Three questions settle an entry: what the script actually does (download a binary,
+  compile native code, probe for a prebuilt one); whether anything this repository runs
+  needs its result, or it belongs to a feature never turned on; and whether the package
+  already ships a prebuilt platform binary as an optional dependency, making the script
+  a fallback rather than the only path. `false` is as much a decision as `true` — it
+  records that the script was reviewed and refused, so the next install failure is not
+  answered with a reflexive `true`. Read the file's comments for the ruling each entry
+  carries; adding a `true` one carries the same review weight as adding a new
+  dependency.
 - `strictPeerDependencies`: a peer range declared by an installed dependency and left
   unmet or conflicting is a hard install failure, not a warning. This is what makes the
   TypeScript ceiling in the main skill an enforced constraint instead of an advisory
@@ -28,7 +28,12 @@ the file for the current values rather than trusting a number copied here.
   same burden: prefer naming the single `parent>child` edge, say why, and say what would
   let it be dropped. A package-wide override is the exception to that, and needs its own
   reason in the comment — that several independent edges reach the bad version, so an
-  edge list would be incomplete the moment a new transitive dependency reopens it.
+  edge list would be incomplete the moment a new transitive dependency reopens it. The
+  `semver` override is the worked example: a provenance-less release that `trustPolicy`
+  refuses, reached through a lint plugin's transitive tree, overridden package-wide for
+  the reason its comment gives and with the condition for dropping it written beside it.
+  A new override follows that shape — the failure it answers, why the replacement is
+  compatible, and when it goes.
 - `minimumReleaseAgeStrict` and `minimumReleaseAgeIgnoreMissingTime` close two specific
   bypasses of the release-age cooldown in the main skill: an already-lockfiled version
   skipping the check, and registry metadata with no publish time being treated as old

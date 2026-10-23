@@ -31,18 +31,34 @@
       "parameters": {
         "strict_required_status_checks_policy": false,
         "required_status_checks": [
-          { "context": "Static checks", "integration_id": 15368 },
-          { "context": "Test (ubuntu-latest)", "integration_id": 15368 },
+          {
+            "context": "Static checks",
+            "integration_id": 15368
+          },
+          {
+            "context": "Build and end-to-end",
+            "integration_id": 15368
+          },
+          {
+            "context": "Test (ubuntu-latest)",
+            "integration_id": 15368
+          },
           {
             "context": "Validate the Conventional Commit prefix",
             "integration_id": 15368
           },
-          { "context": "Review new dependencies", "integration_id": 15368 },
+          {
+            "context": "Review new dependencies",
+            "integration_id": 15368
+          },
           {
             "context": "Scan history for leaked credentials",
             "integration_id": 15368
           },
-          { "context": "Spell check code and docs", "integration_id": 15368 }
+          {
+            "context": "Spell check code and docs",
+            "integration_id": 15368
+          }
         ]
       }
     }

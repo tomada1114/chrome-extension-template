@@ -1,8 +1,8 @@
 # A new private repository
 
-Decide availability before the new app's first PR merges. The dependency review action
-works in public repositories and in private repositories with GitHub Code Security or
-GitHub Advanced Security enabled
+Decide availability before the new extension's first PR merges. The dependency review
+action works in public repositories and in private repositories with GitHub Code
+Security or GitHub Advanced Security enabled
 ([GitHub dependency review](https://docs.github.com/en/code-security/concepts/supply-chain-security/dependency-review),
 checked 2026-10-02). GitHub code scanning in private repositories needs a GitHub Code
 Security license; its availability also depends on repository ownership and plan
@@ -29,5 +29,6 @@ checked 2026-10-02).
    `changing-gates` owns that timing. The agent prepares the files and evidence; the
    owner performs the settings write.
 
-This procedure is for an app started from the template. It does not alter the public
-template's workflows or authorize a licensing purchase or a remote settings change.
+This procedure is for an extension started from the template. It does not alter the
+public template's workflows or authorize a licensing purchase or a remote settings
+change.

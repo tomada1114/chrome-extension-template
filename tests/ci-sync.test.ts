@@ -2,9 +2,16 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import vitestConfig from "../vitest.config";
+
+// This suite reads vitest.config.ts as data. Importing it runs `WxtVitest()`,
+// which loads WXT's whole build core — including its optional `web-ext`
+// runner, which this repository does not install — inside the test runner
+// rather than inside Vitest's own config loader. The plugin's output is not
+// what is asserted here, so it is replaced by an empty plugin list.
+vi.mock("wxt/testing/vitest-plugin", () => ({ WxtVitest: () => [] }));
 
 // `check:source` restates, as one composite script, ground that
 // `.github/workflows/ci.yml`'s jobs also cover as separate `run:` steps (split
@@ -32,6 +39,10 @@ const CHECK_SOURCE_ONLY_EXCEPTIONS = new Map<string, string>([
  * legitimately does not owe, as opposed to one nobody can run before pushing.
  */
 const CI_ONLY_EXCEPTIONS = new Map<string, string>([
+  [
+    "e2e:browsers",
+    "Downloads Playwright's Chromium onto a fresh runner. A developer checkout installs it once (`pnpm e2e:browsers`, as CONTRIBUTING.md says) rather than re-downloading it on every `check:source`, and `test:e2e`, which `check:source` does run, fails with Playwright's own install hint when it is missing.",
+  ],
   [
     "test",
     "ci.yml's `Run tests without coverage` step is the `matrix.os != 'ubuntu-latest'` half of a pair that keeps coverage collected exactly once when a second OS joins the matrix; the `ubuntu-latest` half runs `test:coverage`. `check:source` runs `test:coverage` too, which is this suite plus the coverage floors, so a local run is not missing a gate.",

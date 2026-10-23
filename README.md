@@ -1,132 +1,129 @@
-# my-package
+# my-extension
 
-[![CI](https://github.com/tomada1114/nextjs-app-template/actions/workflows/ci.yml/badge.svg)](https://github.com/tomada1114/nextjs-app-template/actions/workflows/ci.yml)
+[![CI](https://github.com/tomada1114/chrome-extension-template/actions/workflows/ci.yml/badge.svg)](https://github.com/tomada1114/chrome-extension-template/actions/workflows/ci.yml)
 
 A short description.
 
 ## What this is
 
-A starting point for a Next.js application on the App Router: a locale-prefixed page
-tree styled with Tailwind v4 and shadcn/ui, one JSON endpoint, and one language-model
-call kept behind an interface rather than called directly. ESM-only TypeScript
-throughout.
+A starting point for a Manifest V3 browser extension for Chrome and Edge, built with
+[WXT](https://wxt.dev) in ESM-only TypeScript. The popup and options page are React
+screens styled with Tailwind v4 and shadcn/ui; a service worker and a content script sit
+beside them.
 
-Two things follow from that last part, and they are most of why this template exists.
-Answers come from [OpenRouter](https://openrouter.ai) by default, and switching the
-model is one environment variable, `LLM_MODEL`, rather than a code change — while
-`LLM_ADAPTER=fake` swaps in a fake adapter that needs no key and bills nothing. And a
-project that wants no model at all deletes the layer in one piece instead of unpicking
-it, which a test keeps true rather than a convention.
+What it ships is less a feature than a shape that holds up once the extension is in
+users' hands:
+
+- **Every extension context, with one tested example.** The popup counts clicks by
+  messaging the service worker, the service worker keeps the count in storage and on the
+  toolbar badge, the options page turns the badge off through synced storage, and the
+  content script marks `https://example.com/*`. Each is small enough to replace on day
+  one and complete enough to copy from.
+- **Tests at three levels.** Unit tests run the storage, messaging and service-worker
+  logic against an in-memory browser (`fakeBrowser`); component tests render the screens
+  under jsdom; and a Playwright suite loads the built extension into headless Chromium
+  and clicks through it. A fourth suite pins the permissions in the generated manifest,
+  so a new consent prompt cannot slip into a release unreviewed.
+- **Boundaries a linter enforces.** Code is split by the context it runs in, and ESLint
+  plus a module-graph test keep a component from reaching a browser API, the service
+  worker from importing a screen, and any file from building markup out of strings.
+- **A tag-driven release.** Pushing `v<version>` builds, re-runs the browser tests,
+  packages Chrome and Edge zips, attaches them to a GitHub release, and — after a human
+  approves the deployment — submits both to their stores.
 
 `AGENTS.md` describes the architecture and the rules; this file is the tour.
 
 ## Quick start
 
-Use Node.js 24 (the version in `.node-version`) and Corepack. The first run needs no
-provider account, credential file, or network call to a model:
+Use Node.js 24 (the version in `.node-version`) and Corepack:
 
 ```sh
 corepack enable
 corepack pnpm@11.18.0 install --frozen-lockfile
-LLM_ADAPTER=fake pnpm dev
+pnpm dev
 ```
 
-Then open <http://localhost:3000>, which redirects to the locale your browser asks for —
-`/en` or `/ja`. The page it renders is `src/app/[locale]/page.tsx`, and the text on it
-comes from `messages/en.json` and `messages/ja.json`.
+`pnpm dev` builds the extension in watch mode and opens a separate Chromium window with
+it loaded and a throwaway profile, so your own browser and profile are untouched. Click
+the toolbar icon for the popup; its options page is one button away, and visiting
+<https://example.com> shows the content script's marker. Edits reload the extension on
+their own. `pnpm dev:edge` does the same for Microsoft Edge.
 
-Exercise the endpoint while that fake server is running:
+To load a production build by hand instead, run `pnpm build` and, in a Chrome profile
+you keep for development, choose **Load unpacked** on `chrome://extensions` (with
+Developer mode on), pointing it at `.output/chrome-mv3/`.
+
+## Testing
 
 ```sh
-curl --fail-with-body http://localhost:3000/api/ask \
-  -H 'Content-Type: application/json' \
-  -d '{"prompt":"Hello","locale":"en"}'
+pnpm test             # unit, component and automation suites
+pnpm e2e:browsers     # once per machine: Playwright's Chromium
+pnpm build && pnpm test:manifest && pnpm test:e2e
+pnpm check:source     # everything CI runs, in one command
 ```
 
-Every answer is a fixed sentence and nothing is billed. `fake` is an explicit switch,
-never inferred from a missing key: a deployment that lost its key fails rather than
-quietly answering from the fake.
+The end-to-end suite needs Playwright's own Chromium because branded Google Chrome no
+longer loads an unpacked extension from the command line. It runs headless and offline:
+the page the content script is tested against is served by the test itself.
 
-To use a real model, copy `.env.example` to `.env`, set `OPENROUTER_API_KEY` and
-`API_ACCESS_KEY` there, and run `pnpm dev` without `LLM_ADAPTER=fake`. Never commit the
-credential file. Without both keys, `POST /api/ask` refuses to load: every request to it
-answers `500` and the server log names the missing variable, while the pages still
-render.
+## Extending the extension
 
-There is one API route, `POST /api/ask`, which takes
-`{ "prompt": "...", "locale": "en" }` and answers `{ "answer": "..." }`. The `locale` is
-a UI locale, and the handler is what maps it to the language the model writes in. The
-route answers through the OpenRouter adapter, with `LLM_MODEL` naming any OpenRouter
-model id and the adapter's own default used when it is unset;
-`src/server/composition.ts` is the single place that decides which adapter is behind it.
+Each kind of change has a skill under `.agents/skills/` that holds its rules —
+`building-entrypoints` for a new context or message, `managing-storage` for a stored
+key, `changing-permissions` for anything a user consents to, and `releasing-to-stores`
+for shipping. The short version:
 
-Because provider answers are billed, the endpoint is closed. `src/server/composition.ts`
-declares that the adapter it wires bills a provider, and `readServerEnv` then requires
-`OPENROUTER_API_KEY` and `API_ACCESS_KEY` — a deployment that pays for its answers
-refuses to load the route rather than serving anyone who finds the URL — after which it
-answers `401` unless the request carries that key as `Authorization: Bearer <value>`.
-Under `LLM_ADAPTER=fake` nothing is billed and neither key is required. That is
-authentication and nothing more: this template ships no rate limit. Before deploying a
-billed adapter, enforce a shared throughput policy at an edge or gateway ahead of the
-app. An access key alone does not cap spending.
+- **A new screen or script** is a file or folder under `src/entrypoints/`; WXT turns it
+  into a manifest entry. Keep it to wiring, and put its logic in the zone for its
+  context (`src/background/`, `src/content/`, `src/components/`).
+- **A new stored value** is declared in `src/platform/storage.ts` with a `version`, and
+  changing its shape later means a migration — users keep what the previous release
+  wrote.
+- **A new message** is a line in `ProtocolMap` in `src/platform/messaging.ts`, typed on
+  both ends.
+- **A new permission or site** changes the install prompt and disables the extension for
+  existing users until they accept it, so `tests/manifest.test.ts` makes it a visible
+  diff.
 
-What the route does bound is the size of a request. The `prompt` is trimmed and must be
-1 to 8000 characters, and the body is refused with `413` once it crosses 64 KiB while it
-is being read — before the model is asked, on either path. Both ceilings are constants:
-`MAX_PROMPT_LENGTH` in `src/server/handlers/ask.ts` and `MAX_REQUEST_BODY_BYTES` in
-`src/server/http.ts`. Bodies must be valid UTF-8 JSON; all endpoint responses carry
-`Cache-Control: no-store`.
+## Starting a new extension from this template
 
-## Extending the app
-
-Add pages under `src/app/[locale]/` and use the locale-aware `Link` from
-`src/i18n/navigation.ts`. The home page opts into static rendering; the shared layout
-leaves new pages free to read cookies or headers. Put canonical URLs and language
-alternates on each page, since inheriting the home's URL would identify a different page
-to crawlers.
-
-New model adapters implement `LlmPort` and run the existing contract suite. New
-endpoints keep their Web-standard handler under `src/server/handlers/` and wire it in
-`composition.ts`; no framework is needed to test a handler. The existing fake adapter
-and recorded provider responses keep ordinary checks offline.
-
-## Starting a new app from this template
-
-Copy the tree, then work through
+Create a repository from this template, then work through
 [`starting-an-app`](.agents/skills/starting-an-app/SKILL.md), which owns the procedure
-and the order it runs in: rename first, then decide whether to keep the language-model
-layer or remove it whole, then decide the locales, then settle the design direction
-before the first screen of your own, then run `pnpm check:source` once.
+and its order: rename, describe the product and its single purpose, replace the sample
+behavior and icons, choose the locales, settle the design direction before the first
+screen of your own, review the permissions, and set up the store submission.
+
+The title, the description and the author above are this template's own identity
+strings, deliberately left as placeholders. `tests/placeholders.test.ts` holds the
+complete list of where one still stands, and a new extension is finished renaming when
+that list is empty and the test is green.
 
 The template ships shadcn/ui's stock neutral tokens so a copied component renders, not a
-design anyone chose — `src/app/globals.css` and the
+design anyone chose — `src/assets/globals.css` and the
 [`designing-ui`](.agents/skills/designing-ui/SKILL.md) skill both say so, and the same
-placeholder inventory below reports it until the direction is settled.
+inventory reports it until the direction is settled.
 
-The rename is what the title, the description and the author above are waiting for —
-they are this template's own identity strings, deliberately left as placeholders.
-`tests/placeholders.test.ts` holds the complete list of where one still stands, and a
-new app is finished renaming when that list is empty and the test is green.
+## Publishing
 
-`pnpm dlx shadcn@latest add <name>` cannot run from this repository's root under its
-supply-chain policy; `designing-ui` holds the workaround.
+The store listing and privacy disclosures start from the templates in
+[`docs/store-listing.md`](docs/store-listing.md) and
+[`docs/privacy-policy.md`](docs/privacy-policy.md). The first Chrome Web Store upload is
+manual — it is how the store assigns the extension its ID — and every release after it
+goes through `release.yml`.
+[`releasing-to-stores`](.agents/skills/releasing-to-stores/SKILL.md) lists the
+credentials it needs and the steps in order.
 
 ## Development
 
-This package is private: nothing here is packed, published, or consumed as a tarball.
+This package is private on npm; what ships is the zip `pnpm zip` builds.
 
 ```sh
 corepack pnpm@11.18.0 install --frozen-lockfile
 pnpm check:quick
 ```
 
-The install puts the Git hooks in place on its own — lefthook's `postinstall` does it,
-on every non-CI install — and `package.json`'s `prepare` script then runs
-`scripts/verify-hooks.mjs`, which fails the install if the pre-commit hook did not
-actually land. So there is no setup step for the hooks; `pnpm hooks:install` is the
-repair when that check reports one is needed.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the complete workflow, and
+The install puts the Git hooks in place on its own and generates WXT's types into
+`.wxt/`. See [CONTRIBUTING.md](CONTRIBUTING.md) for the complete workflow, and
 [AGENTS.md](AGENTS.md) for the architecture, the command index, and the rules every
 change is held to.
 

@@ -1,24 +1,24 @@
 ---
 name: designing-ui
 description: >
-  Covers this app's visual language and the Tailwind v4 + shadcn/ui foundation under it:
-  the design-direction lock, the tokens in src/app/globals.css, adding a shadcn/ui
-  component with pnpm dlx shadcn@latest add into src/components/ui/, cn and
-  tailwind-merge, dark mode, and the Preflight traps. Use when building or restyling a
-  component or page, choosing a color, type size, radius, spacing or motion, adding or
-  renaming a theme token, running the shadcn CLI, or when the design direction is still
-  unsettled in a fresh copy of the template.
+  Covers this extension's visual language and its Tailwind v4 + shadcn/ui foundation:
+  the design-direction lock, the tokens in src/assets/globals.css, components.json and
+  adding a shadcn/ui component into src/components/ui/, cn and tailwind-merge, dark mode
+  through prefers-color-scheme, the popup's size limits, bundled rather than remote
+  fonts, and the Preflight traps. Use when building or restyling the popup or options
+  page, choosing a color, type size, radius, spacing or motion, adding a theme token,
+  running the shadcn CLI, or while the design direction is still unsettled.
 ---
 
 # Designing UI
 
-**Owns:** the visual direction and its lock, the theme tokens in `src/app/globals.css`,
-how a shadcn/ui component enters `src/components/`, and the craft rules every screen
-follows. **Does not own:** which zone a component may import from (`building-app-routes`
-and AGENTS.md's Architecture); the TypeScript inside a component (`writing-typescript`);
-the text a component renders (`localizing-ui`); the states a screen renders and its
-accessible names (`building-screens`); settling the direction for a new app the first
-time (`starting-an-app`).
+**Owns:** the visual direction and its lock, the theme tokens in
+`src/assets/globals.css`, how a shadcn/ui component enters `src/components/`, and the
+craft rules every screen follows. **Does not own:** which zone a component may import
+from (AGENTS.md's Architecture); the TypeScript inside a component
+(`writing-typescript`); the text a component renders (`localizing-ui`); the states a
+screen renders, its accessible names and the popup's lifetime (`building-screens`);
+settling the direction for a new extension the first time (`starting-an-app`).
 
 Nothing here is enforced by a config or a test. A drifted screen passes every gate, so
 the lock below is the check: read it before styling, and compare the rendered screen
@@ -28,46 +28,52 @@ against it afterwards.
 
 DESIGN DIRECTION: UNSETTLED.
 
-The template ships no design direction. `src/app/globals.css` carries shadcn/ui's stock
-`neutral` tokens so a copied component renders on day one, and that is all they are —
-not a choice anyone made. While this marker stands, style only with the existing tokens
-and the registry's own classes; do not pick a palette, a typeface or a layout by taste
-to get a screen done. In a project started from the template, stop and say the direction
-is unsettled, then settle it through `starting-an-app` before the first real screen.
+The template ships no design direction. `src/assets/globals.css` carries shadcn/ui's
+stock `neutral` tokens so a copied component renders on day one, and that is all they
+are — not a choice anyone made. While this marker stands, style only with the existing
+tokens and the registry's own classes; do not pick a palette, a typeface or a layout by
+taste to get a screen done. In a project started from the template, stop and say the
+direction is unsettled, then settle it through `starting-an-app` before the first real
+screen.
 
 Settling it replaces the marker with a filled lock of this shape, researched rather than
 invented, and locked — a later screen adapts to it rather than renegotiating it:
 
 ```text
-Primary reference:  the one product whose visual system this app follows, and why.
+Primary reference:  the one product whose visual system this extension follows, and why.
 Preserve:           what is kept from it — canvas, type roles, rules vs. shadows, radii,
-                    density, the column.
+                    density, the popup's width.
 Borrow only:        the specific pieces taken from a second reference, and nothing else.
-Role rules:         which color means what, stated once — the primary action, a status.
-Media strategy:     photography, illustration and graphics allowed, or ruled out.
-Reject:             the genre defaults this app will not ship.
-Memorable move:     the one thing a reader should remember about the screen.
+Role rules:         which color means what, stated once — the primary action, a status,
+                    the toolbar badge.
+Media strategy:     illustration, icons and graphics allowed, or ruled out.
+Reject:             the genre defaults this extension will not ship.
+Memorable move:     the one thing a reader should remember about the popup.
 ```
 
 Follow it with a ledger — one row per decision a reader would otherwise take on trust:
 the decision, its source, and why. Then replace the stock values in `globals.css` and
-record the component recipes (primary action, field, card) in a `references/` file next
-to this one.
+record the component recipes (primary action, field, card) in a `references/` file
+beside this one. The toolbar icon belongs to the same lock: it is the one piece of the
+design a user sees on every page.
 
 Research with the user-level `refero-design` skill when it is installed. Without it,
 follow [references/design-lock.md](references/design-lock.md), whose procedure needs no
-other skill and no MCP server.
+other skill and no extra tool.
 
 ## Foundation
 
-Tailwind v4 with no `tailwind.config.js`: `postcss.config.mjs` is the whole of the build
-wiring, and the theme is CSS. Tokens are declared once in `globals.css` and consumed as
-utilities; a component never carries a raw color, a one-off `px` type size, or an
-arbitrary-value color.
+Tailwind v4 with no `tailwind.config.js` and no PostCSS config: the `@tailwindcss/vite`
+plugin in `wxt.config.ts` is the whole of the build wiring, and the theme is CSS. Each
+screen imports `src/assets/globals.css` from its `main.tsx`. Tokens are declared once
+there and consumed as utilities; a component never carries a raw color, a one-off `px`
+type size, or an arbitrary-value color.
 
-- `components.json` points every shadcn alias inside one zone — `@/components`,
-  `@/components/ui`, `@/components/lib`, `@/components/lib/utils`, `@/components/hooks`
-  — so the CLI writes into `src/components/` and nowhere else.
+- `components.json` points the CLI at `src/assets/globals.css` and every shadcn alias
+  inside one zone — `@/components`, `@/components/ui`, `@/components/lib`,
+  `@/components/lib/utils`, `@/components/hooks` — so the CLI writes into
+  `src/components/` and nowhere else. `rsc` is `false`: there are no Server Components
+  here, and a copy's `"use client"` line is noise to delete.
 - `pnpm dlx shadcn@latest …` cannot run from the repository root: the CLI's own
   dependency graph reaches a package that `pnpm-workspace.yaml`'s `trustPolicy` refuses.
   Run it from a scratch directory outside the checkout and point it back with
@@ -92,9 +98,11 @@ arbitrary-value color.
   utility by `@theme inline`. `inline` makes the utility read the property itself, which
   is what lets one media query swap every value.
 - Dark mode follows `prefers-color-scheme` and nothing else — Tailwind v4's default
-  `dark:` variant is the same media query. shadcn's `.dark` class is not used, because
-  nothing sets it; a project that adds a theme toggle moves the dark values under a
-  selector and redeclares the variant with `@custom-variant dark`.
+  `dark:` variant is the same media query, and `color-scheme: light dark` on `:root`
+  lets the browser draw scrollbars and native controls to match. shadcn's `.dark` class
+  is not used, because nothing sets it; a project that adds a theme setting moves the
+  dark values under a selector, redeclares the variant with `@custom-variant dark`, and
+  stores the choice through `managing-storage`.
 - A token declared directly in a plain `@theme` block is emitted only once some utility
   uses it, so `var()` against an unused one from hand-written CSS resolves to nothing.
   Declare such a block `@theme static` when raw CSS reads the tokens too.
@@ -106,6 +114,27 @@ arbitrary-value color.
   Adding one means switching `src/components/lib/utils.ts` to `extendTailwindMerge` with
   `extend.theme.text` naming it, plus a `cn` case in `tests/ui-primitives.test.tsx` that
   keeps the size beside a color.
+
+## Extension constraints
+
+- **The popup's box.** Chrome sizes the popup to its content "between 25x25 and 800x600
+  pixels" (<https://developer.chrome.com/docs/extensions/reference/api/action>, checked
+  2026-10-23). Design for a fixed width well inside that, set on the root, and a height
+  that scrolls inside the popup rather than past the bound. A layout that needs more
+  room belongs on the options page, which opens in a tab.
+- **Nothing loaded from elsewhere.** An extension page runs only code from its own
+  package — the default `extension_pages` policy is
+  `script-src 'self'; object-src 'self';`
+  (<https://developer.chrome.com/docs/extensions/reference/manifest/content-security-policy>,
+  checked 2026-10-23) — so a CDN script or a component that injects one cannot work.
+  Fonts and stylesheets are not blocked by that policy, but this repository bundles them
+  anyway: a font from a font service is a request to a third party every time the popup
+  opens, telling it who uses the extension, and a popup with no network renders in a
+  fallback face. A typeface enters as a font package or as files under `src/assets/`,
+  imported from `globals.css` (`managing-dependencies` for a package).
+- **The content script's UI is not themed here.** A host page's styles surround anything
+  a content script mounts, and `globals.css` is never injected into it; that UI is
+  `building-entrypoints`' subject.
 
 ## Measuring contrast
 
@@ -131,26 +160,29 @@ them with [references/design-lock.md](references/design-lock.md)'s script.
 - Focus is visible on every control; never remove a ring to tidy a field.
 - Motion is functional and short, and `prefers-reduced-motion` collapses all of it. A
   wait state is one shared inline status, not a new spinner per screen.
-- Mobile is not a later pass: the column is fluid with a 16px gutter below the first
-  breakpoint, and no screen scrolls horizontally.
+- The options page is a full tab: a fluid column with a readable maximum width and a
+  16px gutter at a narrow window, and no horizontal scroll. The popup has one width.
 
 ## Reviewing a screen
 
 No gate sees what a screen looks like. The agent's part comes first:
 
-- `pnpm build && pnpm test:smoke`: the page builds and answers over HTTP.
-- A rendered test that finds the screen's controls by role and accessible name, which
+- `pnpm build && pnpm test:e2e`: the screen builds, loads in Chromium and its controls
+  are found by role and name. A spec may also capture a screenshot of the screen in each
+  scheme with `page.emulateMedia({ colorScheme: "dark" })`, headless, for the pull
+  request.
+- A component test that finds the screen's controls by role and accessible name, which
   proves structure and labels, not appearance. **REQUIRED:** `writing-tests`.
 - The contrast numbers for every pair the change touched.
 - The diff read against the lock: tokens only, no raw color or arbitrary value, nothing
-  the reject list rules out.
+  the reject list rules out, nothing loaded from another origin.
 
-The human's part, asked once: in a single message, give the owner the command that
-starts a dev server on a free port (`pnpm dev --port <port>`) and the URL to open, and
-ask them to view the screen in light and in dark, at a mobile width, with reduced motion
-on, and by keyboard alone with the focus ring visible on every control — each compared
-against the lock. Asking ends your turn, and a server of yours is stopped before it
-does, so the owner starts this one. **REQUIRED:** `running-the-app` for the procedure.
+The human's part, asked once: in a single message, ask the owner to run `pnpm dev`, open
+the popup from the toolbar and the options page from it, and look at each in light and
+in dark, with reduced motion on, at the options page's narrowest window, and by keyboard
+alone with the focus ring visible on every control — each compared against the lock.
+`pnpm dev` opens a browser window, so it is theirs to start. **REQUIRED:**
+`running-the-extension` for the hand-off.
 
 The pull request carries what they saw, item by item, and "not reviewed" for any item
 nobody looked at — a green run never stands in for it.

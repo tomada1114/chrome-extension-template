@@ -4,11 +4,10 @@ description: >
   Covers whether a package may be added to this repository and what happens at install
   time: the sign-off and review record a new dependency needs, verifying a change before
   it lands, SemVer range versus exact pin, the minimumReleaseAge cooldown, the
-  supply-chain settings in pnpm-workspace.yaml, the typescript version ceiling, and the
-  manual pin for .mcp.json's MCP servers. Use when adding, bumping, or removing a
-  package by hand, editing package.json's dependencies or .mcp.json's MCP server
-  version, an install fails on a peer range or lifecycle script, or someone proposes
-  raising typescript.
+  supply-chain settings and overrides in pnpm-workspace.yaml, the typescript version
+  ceiling, and what a package bundled into the extension costs its users. Use when
+  adding, bumping, or removing a package by hand, an install fails on a peer range,
+  provenance or lifecycle script, or someone proposes raising typescript.
 ---
 
 # Managing Dependencies
@@ -16,19 +15,18 @@ description: >
 **Owns:** whether a package may exist in this repository at all, and what happens at
 install time. **Does not own:** landing an existing bot PR (`merging-dependency-prs`).
 
-This repository is a private application. Nothing here is packed, published, or consumed
-as a tarball, so a dependency is judged by what it costs to install and to run — never
-by what it would do to a published surface.
+Nothing here is packed, published, or consumed as a tarball, so a dependency is judged
+by what it costs to install and to run — and, for anything the extension imports, by
+what it ships to every user inside the zip.
 
 ## A dependency is a sign-off change
 
-Any new package — runtime or dev, a direct `package.json` entry, or a new MCP server in
-`.mcp.json` — needs the review record below and the owner's sign-off **before**
-`pnpm add` runs or the `.mcp.json` entry is written. An agent writes the record,
-proposes the change, and stops: nothing is installed or committed until the owner says
-yes, and a decline ends the change. No standing exception covers a new dependency
-(`AGENTS.md` › "Standing exceptions"). Removing a package or bumping one is not a new
-package: "Removing one" and "Range vs. pin" below cover those.
+Any new package — runtime or dev, a direct `package.json` entry — needs the review
+record below and the owner's sign-off **before** `pnpm add` runs. An agent writes the
+record, proposes the change, and stops: nothing is installed or committed until the
+owner says yes, and a decline ends the change. No standing exception covers a new
+dependency (`AGENTS.md` › "Standing exceptions"). Removing a package or bumping one is
+not a new package: "Removing one" and "Range vs. pin" below cover those.
 
 ## The review record a new dependency needs
 
@@ -51,15 +49,26 @@ yet, so the proposal is not ready to send.
 - Supported Node versions and module format (ESM/CJS) against this repository's own
   `devEngines.runtime` and `"type": "module"` in `package.json`.
 - Open security advisories and npm provenance.
+- For anything `src/` imports: what it adds to the bundle, measured — the size of
+  `.output/chrome-mv3/` after `pnpm build`, before and after — and whether it reaches
+  for remote code or `eval`, which Manifest V3 does not run (AGENTS.md's "Four
+  contexts").
 - Which of `dependencies`, `devDependencies`, or `optionalDependencies` it belongs in,
   and why. There is no fourth option: this repository publishes nothing, so it declares
   no `peerDependencies` of its own. Every peer range you will meet was declared by
   something you installed.
 
-A runtime entry is the expensive one: `dependencies` is what ships to the running
-application and what the weekly `security-audit.yml` job audits with
-`pnpm audit --prod`. A build- or test-only package belongs in `devDependencies`, where
-an advisory is handled by a bot PR instead of paging whoever reads that schedule.
+A package the extension imports is the expensive one: it is bundled into the zip every
+user installs, runs inside their browser with the extension's permissions, and grows
+both the download and what a store reviewer has to read. It belongs in `dependencies`,
+which is what the weekly `security-audit.yml` job audits with `pnpm audit --prod`. A
+build- or test-only package belongs in `devDependencies`, where an advisory is handled
+by a bot PR instead of paging whoever reads that schedule.
+
+The split is not exact, and the gap is worth knowing: `wxt` is a devDependency because
+it is the build tool, yet `src/` imports its runtime helpers (`wxt/browser`,
+`wxt/utils/storage`), so part of it is bundled while the production audit never looks at
+it. A bump to it is judged as a shipped dependency, not as tooling.
 
 ## Removing one
 
@@ -92,10 +101,10 @@ or lockfile change is never verified by mocking the package manager.
 
 ## Families move together
 
-Some packages are released to be used at matching versions: `next` with
-`eslint-config-next`; and `react`, `react-dom`, `@types/react`, `@types/react-dom`. Bump
-a family in one change. A bump that would split one is completed — the rest of the
-family raised to match — or held, never landed half-way.
+Some packages are released to be used at matching versions: `react`, `react-dom`,
+`@types/react`, `@types/react-dom`; and `tailwindcss` with `@tailwindcss/vite`. Bump a
+family in one change. A bump that would split one is completed — the rest of the family
+raised to match — or held, never landed half-way.
 
 ## The release-age cooldown
 
@@ -128,12 +137,6 @@ scoped to one exact version, not to the package forever.
 `pnpm-workspace.yaml` owns the values. Read
 [their consequences](references/supply-chain.md) when an install or run fails; preserve
 the protections rather than quieting the failure.
-
-## The one dependency outside pnpm
-
-Follow [the MCP server procedure](references/mcp-servers.md) for the manually pinned
-`.mcp.json` server: it is outside pnpm's lockfile and bot updates. Adding a server still
-needs the dependency sign-off above.
 
 ## TypeScript version ceiling
 

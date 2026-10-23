@@ -80,28 +80,40 @@ for a Prettier formatting change) belong on the branch. If the new version deman
 real design decision or a config change with tradeoffs, hold the PR and report what it
 wants. Never silence it with `@ts-expect-error` or an `eslint-disable` to land the bump.
 
-## F5 — The application no longer builds
+## F5 — The extension no longer builds, or builds differently
 
-**Symptom:** formatting, lint and typecheck pass; CI's `Build` step fails at
-`pnpm run build` (`next build`). Often the only failing step.
+**Symptom:** formatting, lint and typecheck pass; CI's `Build and end-to-end` job fails
+at `Build`, `Build for Edge`, `Manifest test` or `End-to-end tests`. Often the only
+failing job.
 
-**Cause:** a bump to `next`, `react`, `react-dom`, `next-intl`, or anything
-`next.config.ts` loads. `next build` compiles the App Router tree, runs the framework's
-own plugins, and type-checks the route entry points — a surface no unit test reaches, so
-it is the first place a framework bump shows up.
+**Cause:** a bump to `wxt` or a `@wxt-dev/*` module, `vite`, `react`, `react-dom`,
+`@tailwindcss/vite`, or anything `wxt.config.ts` loads. `wxt build` runs the bundler,
+generates the manifest from the entrypoints and compiles the locale catalogs — a surface
+no unit test reaches, so it is the first place a build-tool bump shows up. A
+`@playwright/test` bump fails `End-to-end tests` until the matching Chromium is
+installed, which CI's `Install Chromium for Playwright` step does on its own.
 
 **Fix:** reproduce it locally, since the CI log truncates the part that matters:
 
 ```bash
-pnpm install --frozen-lockfile && pnpm run build
+pnpm install --frozen-lockfile && pnpm run build && pnpm run test:manifest
+pnpm run e2e:browsers && pnpm run test:e2e
 ```
 
 A renamed config key or a moved export named in the upstream migration note is
-mechanical and belongs on the branch. A failure that needs an App Router change — a
-changed route or layout signature, a newly required export — is a migration rather than
-a bump: hold the PR and report what the release notes ask for. Never drop the build step
-and never reach for `typescript.ignoreBuildErrors` or `eslint.ignoreDuringBuilds` in
-`next.config.ts` to get past it.
+mechanical and belongs on the branch. Two failures are not:
+
+- **The manifest test fails.** The new build generates a different consent surface — a
+  permission, a host pattern, a web-accessible resource the old one did not ask for.
+  That is a change every user is prompted for, not a bump: hold the PR and report the
+  diff. **BACKGROUND:** `changing-permissions`. Never edit the pinned values in
+  `tests/manifest.test.ts` to land it.
+- **A changed entrypoint or storage API** — a moved `define*` helper, a different
+  `storage.defineItem` contract — is a migration rather than a bump: hold the PR and
+  report what the release notes ask for.
+
+Never drop a build or test step, and never turn auto-imports back on in `wxt.config.ts`
+to get past a moved export.
 
 ## F6 — Test or coverage failure
 

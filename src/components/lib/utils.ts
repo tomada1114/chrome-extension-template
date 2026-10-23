@@ -13,7 +13,7 @@ import { twMerge } from "tailwind-merge";
  * default instead of racing it in the stylesheet.
  *
  * `twMerge` only knows Tailwind's default theme. A custom `--text-*` size
- * token added to `src/app/globals.css` is filed with the colors — `text-figure`
+ * token added to `src/assets/globals.css` is filed with the colors — `text-figure`
  * beside `text-muted-foreground` then silently loses the size — so a theme
  * that adds one swaps this for `extendTailwindMerge` naming it, as
  * `designing-ui` describes.

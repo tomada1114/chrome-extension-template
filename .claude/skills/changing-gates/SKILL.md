@@ -1,25 +1,27 @@
 ---
 name: changing-gates
 description: >
-  Covers editing a file that enforces rather than implements: a .github/workflows/*.yml
-  CI workflow, lefthook.yml, or a setting inside eslint.config.mjs, tsconfig.json,
-  vitest.config.ts, .prettierrc.json, or next.config.ts. Use when a CI job or a deploy
-  workflow is proposed, a step is added to check:source or ci.yml, a lefthook stage or
-  glob changes, an ESLint rule or a vitest project is added or loosened, or the question
-  is which gate would have caught a change - including what none of them sees, such as
-  src/proxy.ts and anything needing a running server.
+  Covers editing a file that enforces rather than implements: a CI workflow (ci.yml,
+  release.yml), lefthook.yml, a required context in .github/rulesets/main.json, or a
+  setting in eslint.config.mjs, tsconfig.json, vitest.config.ts, playwright.config.ts,
+  wxt.config.ts or .prettierrc.json. Use when a CI job is proposed, a step is added to
+  check:source or ci.yml, a lefthook glob changes, an ESLint rule, vitest project or
+  Playwright setting is added or loosened, or the question is which gate would have
+  caught a change - including what none of them sees.
 ---
 
 # Changing Gates
 
 **Owns:** a change to a file that enforces rather than implements — a CI workflow,
-`lefthook.yml`, or a tool config (`eslint.config.mjs`, `tsconfig.json`,
-`vitest.config.ts`, `.prettierrc.json`, `next.config.ts`) — and which gate can see a
-given change at all. **Does not own:** adding a dependency the config then configures
-(`managing-dependencies`); a coverage floor's value or which vitest project a test joins
-(`placing-tests`); a `.mjs` under `scripts/` that a gate invokes
-(`writing-repo-scripts`); what `src/proxy.ts` does and where it belongs
-(`building-app-routes`); `.github/labels.yml` (`triaging-issues`).
+`lefthook.yml`, `.github/rulesets/main.json`, or a tool config (`eslint.config.mjs`,
+`tsconfig.json`, `vitest.config.ts`, `playwright.config.ts`, `wxt.config.ts`,
+`.prettierrc.json`) — and which gate can see a given change at all. **Does not own:**
+adding a dependency the config then configures (`managing-dependencies`); a coverage
+floor's value or which suite a test joins (`placing-tests`); a `.mjs` under `scripts/`
+that a gate invokes (`writing-repo-scripts`); the manifest's `permissions` in
+`wxt.config.ts` and the consent surface `tests/manifest.test.ts` pins
+(`changing-permissions`); what `release.yml` publishes and the store procedure
+(`releasing-to-stores`); `.github/labels.yml` (`triaging-issues`).
 
 ## The one rule every gate change shares
 
@@ -40,21 +42,26 @@ file rather than named in the test, so a third job counts the day it lands — a
 when a step on either side has no counterpart on the other.
 
 The exceptions are two maps, one per direction, each value a stated reason rather than a
-comment: `CHECK_SOURCE_ONLY_EXCEPTIONS` holds `hooks:verify`: it checks the developer
-checkout, CI installs no hook, and the verifier skips under `CI`. `CI_ONLY_EXCEPTIONS`
-holds `test`. That one is ci.yml's `Run tests without coverage` step, the
-`matrix.os != 'ubuntu-latest'` branch that keeps coverage collected exactly once should
-a second OS join the matrix; `check:source` runs `test:coverage`, the same suite plus
-the coverage floors, so a local run is not missing a gate. Adding an entry to either map
-is a claim to argue in the PR, and a stale one fails the suite — each key has to still
-name a real step on its own side.
+comment: `CHECK_SOURCE_ONLY_EXCEPTIONS` and `CI_ONLY_EXCEPTIONS` in
+`tests/ci-sync.test.ts`. Read the entries and their reasons there — a step that checks
+the developer's checkout, a browser download a fresh runner needs and a developer does
+once, the half of a coverage pair that only a second OS would run. Adding an entry to
+either map is a claim to argue in the PR, and a stale one fails the suite — each key has
+to still name a real step on its own side.
 
 A gate without a documented source-only exception is therefore three edits: the package
 script, the `check:source` composition, and the matching `ci.yml` step. The suite fails
 if either of the last two is skipped, whichever way round. What it does not judge is
 _which_ job a CI step lands in: steps are collected across all jobs, so a check that
 belongs in `static` but sits in `test` satisfies both directions. That one is still read
-by a human.
+by a human, and so is the order inside `extension`: `test:manifest` and `test:e2e` read
+the build the job's own `Build` step wrote, so they come after it in the same job.
+
+`release.yml` is outside that suite. Its `package` job re-runs the build, the manifest
+test and the end-to-end suite against the tagged commit before it packages anything, and
+nothing compares that list with ci.yml's. A gate added to ci.yml's `extension` job that
+should also hold for a release is added to `release.yml` by hand in the same pull
+request.
 
 ## Gate files
 
@@ -65,27 +72,30 @@ protection an edit removes and what its review must explain.
 
 ## What no gate here sees
 
-No check here boots a browser, and only one boots a server: `pnpm run test:smoke` serves
-the last `pnpm build` with `next start` under `NODE_ENV=production` and asserts over
-`fetch` that `/` redirects to a locale-prefixed path, that `/en` and `/ja` render with
-the right `<html lang>`, that an unknown unprefixed path is redirected rather than 404ed
-and that the prefixed one 404s, that the page links a stylesheet carrying a Tailwind
-utility it uses, and that `POST /api/ask` answers its documented statuses. The
-stylesheet case is the only check that sees PostCSS run at all: a component test renders
-a `className` into the DOM whether or not any CSS was generated. Each hop is asserted
-with `redirect: "manual"`, because a followed redirect merges the proxy's answer with
-the route's and would pass with the proxy gone. That is the whole of what a running
-server is checked for — the seams between the layers, not their behaviour, which each
-layer's own suite owns.
+Two suites read the build: `pnpm test:manifest` pins the generated manifest's consent
+surface, and `pnpm test:e2e` loads `.output/chrome-mv3/` into Playwright's Chromium and
+drives the popup, the options page, the service worker and the content script on a page
+the spec serves itself. They run from `check:source`, from ci.yml's
+`Build and end-to-end` job and from `release.yml`, never from `pnpm test` or
+`pnpm check:quick`, and neither builds for itself. Each refuses a missing build but not
+a stale one, so a run against a build from before the change passes while proving
+nothing about it. A green `check:quick` says nothing about anything only a loaded
+extension shows.
 
-It runs from `check:source` and from ci.yml's `static` job, both times immediately after
-`Build`, and from neither `pnpm test` nor `pnpm check:quick`: the build is what it
-serves, so a run without one would either fail or pay for a second build. It never
-builds for itself — it compares `.next/BUILD_ID` against `src/`, `messages/`,
-`next.config.ts` and `postcss.config.mjs` and refuses a missing or stale build, which is
-how the caller stays the only one paying for a build. A green `check:quick` therefore
-still says nothing about anything only a running server shows.
+Beyond those, a change can be wrong while every gate passes:
 
-Everything outside those five assertions is still a place a change can be wrong while
-every gate passes. A gate proposed to close such a gap is a real gate, not a lint rule,
-and belongs in the PR as such.
+- **The Edge build is built, never loaded.** `build:edge` catches a compile error on the
+  Edge target; nothing runs `.output/edge-mv3/` in a browser.
+- **An update over existing data.** Every spec starts from a fresh profile, so a release
+  that misreads what the previous one stored, or a migration that never runs, passes.
+  `managing-storage` owns the unit tests that stand in for it.
+- **A service-worker restart.** A spec's worker stays alive for the whole test, so state
+  kept in a module variable instead of storage passes here and is lost in a real browser
+  after an idle stop.
+- **A non-default locale in a browser.** `tests/locales.test.ts` holds the catalogs to
+  the same keys; no spec renders a screen in another locale.
+- **Store review and the permission prompt itself.** The manifest test pins what is
+  asked for, not whether a reviewer accepts it or how the warning reads to a user.
+
+A gate proposed to close such a gap is a real gate, not a lint rule, and belongs in the
+PR as such.

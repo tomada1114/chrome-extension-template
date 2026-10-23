@@ -1,0 +1,16 @@
+{
+  "extName": "Chrome 拡張機能テンプレート",
+  "extDescription": "Manifest V3 拡張機能のひな形です。",
+  "popup": {
+    "heading": "クリック数",
+    "increment": "クリックを数える",
+    "openOptions": "設定"
+  },
+  "options": {
+    "heading": "設定",
+    "showBadge": "ツールバーのアイコンに回数を表示する"
+  },
+  "content": {
+    "marker": "Chrome 拡張機能テンプレートがこのページで動作しています"
+  }
+}

@@ -10,7 +10,7 @@ import { cn } from "@/components/lib/utils";
 // umbrella, `cn` from this repository's `src/components/lib/utils.ts`, and the
 // props are an `interface` with an explicit return type, as this repository's
 // ESLint config and `writing-typescript` require. The classes are the
-// registry's own and read only the theme tokens `src/app/globals.css` defines.
+// registry's own and read only the theme tokens `src/assets/globals.css` defines.
 const buttonVariants = cva(
   "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {

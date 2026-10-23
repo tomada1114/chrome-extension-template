@@ -1,156 +1,178 @@
 ---
 name: building-screens
 description: >
-  Covers the states a screen under src/app/[locale]/ renders and a test covers -
-  loading.tsx or a Suspense fallback, error.tsx with retry, not-found.tsx and
-  notFound(), an empty state, a failed form action keeping its input - and the
-  accessibility each one owes: accessible names from the catalog, keyboard reach, focus,
-  live regions, nothing by color alone, and getByRole queries. Use when building a
-  screen or a form, adding an error.tsx, loading.tsx or global-error.tsx, writing an
-  empty or error message, or reviewing a screen for accessibility.
+  Covers the states the popup or the options page renders and a test covers - loading
+  while useStoredValue or useStoredState returns undefined, a failed storage write or a
+  rejected sendMessage, an empty state - and the accessibility each owes: accessible
+  names from the catalog, keyboard reach, focus, live regions, nothing by color alone,
+  getByRole queries. Also the popup's facts: destroyed on close, a small fixed width,
+  browser.runtime.openOptionsPage. Use when building or reviewing a screen under
+  src/entrypoints/popup/ or options/, or a component under src/components/.
 ---
 
 # Building Screens
 
-**Owns:** which states a screen renders, where each one lives in the App Router tree,
-and what a screen owes a reader who does not use a mouse or does not see the color.
-**Does not own:** which file is a Server or a Client Component (`building-app-routes`);
-the tokens, focus ring, motion, contrast and the human review (`designing-ui`); the
-catalog keys a screen reads (`localizing-ui`); the body and file of the tests below
-(`writing-tests`, `placing-tests`); the order of work (`tdd`).
+**Owns:** which states the popup and the options page render, what the popup's lifetime
+and size mean for a screen, and what a screen owes a reader who does not use a mouse or
+does not see the color. **Does not own:** the entrypoint wiring, messages and the
+service worker (`building-entrypoints`); a stored key and its shape
+(`managing-storage`); the tokens, focus ring, motion, contrast and the human review
+(`designing-ui`); the catalog keys a screen reads (`localizing-ui`); the body and file
+of the tests below (`writing-tests`, `placing-tests`); the order of work (`tdd`).
 
-A screen that renders only its happy path passes every gate here. `pnpm build` never
-throws inside a page on purpose, and no test fails because an error boundary is missing:
-the framework's default renders instead, in English, whatever the locale. So list the
-states before the first line of markup, and give each one a test.
+A screen that renders only its happy path passes every gate here. No test fails because
+a write was never announced or a disabled button never re-enabled, and nothing renders a
+default error page for an extension screen: a failure the screen does not handle is a
+click that silently did nothing. So list the states before the first line of markup, and
+give each one a test.
 
-## The states, and where each lives
+## How a screen is put together
 
-| State          | The App Router mechanism                                  | Which side of the boundary                      |
-| -------------- | --------------------------------------------------------- | ----------------------------------------------- |
-| Loading        | `loading.tsx` beside the page, or a `<Suspense>` fallback | Server; a pending control is client             |
-| Failed         | `error.tsx` beside the page, with a retry                 | Client — an error boundary always is            |
-| Not found      | `notFound()` from the page, rendered by `not-found.tsx`   | Server; `src/app/[locale]/not-found.tsx` exists |
-| Empty          | The page itself: a ready state with nothing in it         | Whichever side renders the data                 |
-| Failed action  | The form or button that made the request                  | Client: it owns the input and the pending state |
-| Ready (normal) | The page                                                  | Server unless it needs the client               |
+The entrypoint (`src/entrypoints/<screen>/main.tsx`) is wiring: it reads the catalog
+with `i18n.t`, subscribes to storage through the hooks in `src/components/hooks/`, and
+hands strings, values and callbacks to a component under `src/components/`. The
+component names no browser API and no catalog — AGENTS.md's Architecture forbids it — so
+every label is a prop and every action is a callback. That is what lets a component test
+render each state with plain values. `src/entrypoints/popup/main.tsx` and
+`src/components/count-panel.tsx` are the worked pair.
 
-**REQUIRED:** `building-app-routes` › The Server / Client boundary before adding the
-directive any row above calls for — it goes on the smallest file that needs it, never on
-a layout.
+## The states
+
+| State         | Where it comes from                                                     | What the screen renders                                                   |
+| ------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Loading       | `useStoredValue` / `useStoredState` return `undefined` until first read | the region marked busy, its controls disabled                             |
+| Ready         | the hook returns a value                                                | the screen                                                                |
+| Empty         | a ready value with nothing in it                                        | a sentence saying so, and the action that creates the first item          |
+| Failed action | a rejected `sendMessage(...)` or `WritableStoredValue.set(...)`         | the input kept, a `role="alert"` message from the catalog, control usable |
 
 ## Loading
 
-- A segment's `loading.tsx` wraps its page in a Suspense boundary; a slower part of a
-  page gets its own `<Suspense>` instead, so the rest renders. The layout above is not
-  inside that boundary.
-- A wait inside a Client Component — a submitted form — is a pending state on the
-  control that started it: disabled against a second submit, its label saying what is
-  happening. `designing-ui`'s craft rules hold the one shared inline status a wait uses.
-- Mark a wait for assistive technology: `role="status"` on the region that says it, so
-  the change is announced without moving focus.
-
-## Failed: `error.tsx`
-
-- It carries `"use client"`, takes `{ error, retry }`, and offers `retry` as a button.
-  Since Next.js 16.3, `retry` re-fetches and re-renders the segment; `reset` only clears
-  the boundary without re-fetching, so a retry wired to `reset` can show the same
-  failure again (observed in
-  `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/error.md`,
-  Next.js 16.3.4, 2026-10-01).
-- Render catalog copy, never `error.message` or `error.digest`. In production a Server
-  Component's error reaches the boundary with a generic message by design, and a client
-  error's message can carry anything the code put in it.
-- `src/app/[locale]/error.tsx` sits inside `src/app/[locale]/layout.tsx`'s
-  `NextIntlClientProvider`, so `useTranslations` works there. It does not catch an error
-  thrown by that layout itself.
-- An error thrown by a layout reaches the `error.tsx` of the segment above it, outside
-  that layout's provider. Above `[locale]` that is the root, whose layout renders no
-  `<html>`, so a `src/app/error.tsx` brings its own shell as `src/app/not-found.tsx`
-  does. One thrown by `src/app/layout.tsx` reaches only `src/app/global-error.tsx`,
-  which replaces the root layout: it renders its own `<html>` and `<body>`, has no
-  provider above it, and does not inherit `globals.css`. The template's root boundary
-  reads catalog copy directly, using the URL's locale after hydration and the default
-  locale on the server. Its global boundary reuses that document and imports the
-  stylesheet explicitly, so recovery depends on neither the failed provider nor the
-  failed layout.
-
-## Not found and empty
-
-- A missing record calls `notFound()` from the page, which renders the nearest
-  `not-found.tsx`. Never render an empty page with a 200 for a URL that names nothing.
-- Empty is a ready state, not a loading or a failed one: it says there is nothing yet
-  and offers the next action — the control that creates the first item, or a link to
-  where items come from. A blank region with no sentence is the failure.
+- `undefined` is the loading value, not a missing one: `useStoredValue` returns it until
+  the first `get()` resolves, and a component's prop type says so
+  (`count: number | undefined`). Never render it as `0`, `false` or an empty list — a
+  checkbox that reads `false` while loading is a setting the reader thinks is off.
+- Mark the region busy (`aria-busy`) and disable the controls that would act on the
+  unread value. `CountPanel` does both, and its test asserts both. `SettingsForm` only
+  disables its checkbox, which still renders unchecked while loading: a native two-state
+  checkbox has no "unknown" look, so a setting that must not read as off while loading
+  needs a different control or a busy region around it.
+- A storage read on a screen is short, so no spinner: the busy region shows a
+  placeholder glyph and nothing moves. `designing-ui`'s craft rules hold the one shared
+  inline status a longer wait uses.
+- The hooks do not report a failed read: a `get()` that rejects leaves the value
+  `undefined`, which renders as loading forever. A screen whose read can fail — one that
+  parses data it does not control — needs a distinguishable failed state, which means
+  extending the hook, not catching inside a component.
 
 ## Failed action
 
-A form that calls a Route Handler owns this state, and it has three duties:
+A screen's action reaches the service worker by message or writes storage directly, and
+neither failure is visible by default:
 
-- **Keep the input.** A failure never clears the field or navigates away; the reader
-  fixes or retries what they wrote.
-- **Say why, from the catalog.** Branch on the response's `error.code`, never on its
-  message: map each code to a message key with an `as const satisfies` table, so a new
-  code fails to compile until it has copy. The code union lives in `src/core/`, where
-  both the handler and a component can import it. **BACKGROUND:** `designing-errors` for
-  why a message is not a contract.
-- **Announce it.** Render the message in a `role="alert"` region next to the control,
-  and re-enable the control. Do not move focus to the message; the alert is read where
-  focus already is.
+- `useStoredState` drops a pending edit whose `set()` rejects, so the control snaps back
+  to the stored value with no word said.
+- `sendMessage(...)` is a promise. The template's popup discards it with `void`, so a
+  handler that throws, or a service worker that is mid-update, fails silently.
+
+A screen that must explain a failure has three duties:
+
+- **Keep the input.** A failure never clears a field or closes the screen; the reader
+  fixes or retries what they did.
+- **Say why, from the catalog.** Branch on an error code, never on a message: map each
+  code to a message key with an `as const satisfies` table, so a new code fails to
+  compile until it has copy. **BACKGROUND:** `designing-errors` for why a message is not
+  a contract.
+- **Announce it.** Render the message in a `role="alert"` region beside the control, and
+  re-enable the control. Do not move focus to the message; the alert is read where focus
+  already is.
+
+## Empty
+
+Empty is a ready state, not a loading or a failed one: it says there is nothing yet and
+offers the following action — the control that creates the first item, or a link to
+where items come from. A blank region with no sentence is the failure.
+
+## The popup is not a page
+
+- **It is destroyed on close.** Every close throws away its React tree, its state and
+  any promise still pending. It closes as soon as focus leaves it, and "there is no way
+  to keep the popup open after the user has clicked away"
+  (<https://developer.chrome.com/docs/extensions/develop/ui/add-popup>, checked
+  2026-10-23). State the reader expects to find again lives in storage
+  (`managing-storage`), and work that must finish runs in the service worker, started by
+  a message (`building-entrypoints`). `e2e/popup.spec.ts` asserts the reopened popup
+  reads the stored count, not a fresh one.
+- **It is small and sized to its content,** within the bounds Chrome sets ("between
+  25x25 and 800x600 pixels",
+  <https://developer.chrome.com/docs/extensions/reference/api/action>, checked
+  2026-10-23). Give its root a fixed width — `CountPanel`'s `main` does — so the popup
+  does not resize as a value loads or a message appears; a resizing popup jumps under
+  the pointer. Width and density are `designing-ui`'s.
+- **Open the options page with `browser.runtime.openOptionsPage()`,** from the
+  entrypoint, passed to the component as a callback. It opens the page the manifest
+  declares, in a tab because `src/entrypoints/options/index.html` carries
+  `manifest.open_in_tab`. Never hard-code a `chrome-extension://` URL.
+- The options page is an ordinary tab with the room of one; its states are the same
+  table above.
 
 ## Accessibility
 
 What follows is what a rendered test can check. Contrast is measured, not judged —
-**REQUIRED:** `designing-ui` › Measuring contrast. Focus ring, reduced motion and mobile
-width are its craft rules, and only its human review sees them.
+**REQUIRED:** `designing-ui` › Measuring contrast. Focus ring, reduced motion and the
+popup's width are its craft rules, and only its review sees them.
 
 - **Every control has an accessible name.** Prefer visible text: a `<label>` tied to its
-  field, a button's own words. A control with no visible text — an icon button, a
-  landmark — takes an `aria-label` from the catalog; `src/app/[locale]/page.tsx`'s
-  `<nav aria-label>` is the example. A placeholder is not a label.
-- **Native elements first.** `<button>` for an action, `<a>`/`Link` for navigation,
-  `<input>` with a `<label>` for a field. They are keyboard-reachable and announce their
-  role for free; a `<div onClick>` is neither. Never set a positive `tabIndex`.
-- **Structure a reader can navigate.** One `<h1>` per screen, headings in order, and
-  landmarks (`<main>`, `<nav>`) as the existing pages use them.
+  field with `useId` (as `SettingsForm` does), a button's own words. A control with no
+  visible text — an icon button — takes an `aria-label`, passed in as a prop from the
+  catalog. A placeholder is not a label.
+- **Native elements first.** `<button>` for an action, `<a>` for navigation, `<input>`
+  with a `<label>` for a field. They are keyboard-reachable and announce their role for
+  free; a `<div onClick>` is neither. Never set a positive `tabIndex`.
+- **A value that changes is announced.** `<output>` carries the implicit `status` role
+  and `aria-live="polite"` makes the update read without moving focus — `CountPanel`'s
+  count is the example, and `e2e/popup.spec.ts` finds it by that role.
+- **Structure a reader can navigate.** One `<h1>` per screen, headings in order, and a
+  `<main>` landmark, as both screens use them.
 - **Nothing by color alone.** A status, an invalid field or the current item carries a
   word, an icon with a name, or `aria-current`/`aria-invalid` beside its color.
-- **The document language comes from the locale layout's `<html lang>`.** A fragment in
+- **The document language.** Both `index.html` files hard-code `<html lang="en">`, which
+  is wrong for a reader on another catalog; a screen with real prose sets
+  `document.documentElement.lang` from `main.tsx` beside `document.title`. A fragment in
   another language sets its own `lang`.
+- **The page title** is set from the catalog in `main.tsx`, because `__MSG_*__` does not
+  resolve in HTML. **BACKGROUND:** `localizing-ui`.
 
 ## Strings
 
-Every string a state renders comes from a catalog — the loading label, the error and
-retry copy, the empty sentence and its action, every `aria-label`. A hard-coded English
-fallback is the bug this skill exists for, not a placeholder. **REQUIRED:**
-`localizing-ui` for adding the keys to every catalog and to `MESSAGE_KEYS`.
+Every string a state renders comes from a catalog — the loading label, the error copy,
+the empty sentence and its action, every `aria-label`. A hard-coded English fallback is
+the bug this skill exists for, not a placeholder. **REQUIRED:** `localizing-ui` for
+adding the key to every catalog.
 
 ## Verifying a screen
 
-- One rendered test per state, under jsdom, querying by role and accessible name with
-  the name read from the catalog: `getByRole("button", { name: en.Namespace.retry })`,
-  `getByRole("alert")`, `getByRole("status")`. A query that only finds the element by
-  class or test id proves nothing about its name. **REQUIRED:** `writing-tests`.
-- An `error.tsx` is a synchronous Client Component: render it directly with an `error`
-  and a recording `retry`, click the button, and assert it was called. A failed action
-  renders the component with an injected failing response and asserts the alert's text
-  and that the field still holds its value.
-- An asynchronous Server Component is not rendered under jsdom — `building-app-routes`
-  explains why — so a `loading.tsx` or page that awaits is checked by
-  `pnpm build && pnpm test:smoke`, and by opening it.
+- One component test per state, under jsdom, rendering the component with plain props:
+  `count: undefined` for loading, a value for ready, an empty value, and a callback that
+  rejects for a failed action. Query by role and accessible name —
+  `getByRole("button", { name: "…" })`, `getByRole("status")`, `getByRole("alert")`. A
+  query that finds the element by class or test id proves nothing about its name.
+  `tests/count-panel.test.tsx` is the example. **REQUIRED:** `writing-tests`.
+- The wired screen — the entrypoint, the real storage and the service worker behind it —
+  is checked by `pnpm build && pnpm test:e2e`. A spec opens the screen as a tab at
+  `chrome-extension://<id>/popup.html` and reads each name from `src/locales/en.json`,
+  never a literal. A tab is not a popup: neither its size bounds nor its closing on blur
+  are exercised there.
 - jsdom computes no layout, focus ring or contrast. Those are `designing-ui`'s
   "Reviewing a screen", the agent part and the human part.
-- No axe, no browser and no E2E harness, deliberately — the same decision
-  `tests/server-smoke.test.ts` records. Proposing one is a dependency and a gate change,
-  not part of a screen.
 
 ## Checklist
 
-- [ ] Loading, failed, not found, empty and any failed action each render, and each has
-      a test.
-- [ ] `error.tsx` is a Client Component that offers `retry` and renders catalog copy.
+- [ ] Loading, empty and every failed action render, and each has a test.
+- [ ] `undefined` renders as loading, never as a default value.
+- [ ] A failed action keeps the input and announces catalog copy in `role="alert"`.
+- [ ] Popup state that must survive a close is in storage; long work is in the service
+      worker.
 - [ ] Every control has an accessible name from the catalog and is a native element.
-- [ ] No state is shown by color alone; a wait is `role="status"`, a failure
-      `role="alert"`.
+- [ ] No state is shown by color alone.
 - [ ] Every new string is in every catalog.
 - [ ] `designing-ui`'s review ran, and the pull request says what was not reviewed.

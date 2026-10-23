@@ -5,7 +5,7 @@
 Never report a vulnerability in a public issue, a pull request, or a discussion. Open a
 private advisory instead:
 
-https://github.com/tomada1114/nextjs-app-template/security/advisories/new
+https://github.com/tomada1114/chrome-extension-template/security/advisories/new
 
 That form is GitHub's private vulnerability reporting: only you and the repository's
 maintainers can read the report. GitHub documents the flow in
@@ -31,16 +31,34 @@ guaranteed time to acknowledge, assess, or fix a report. A confirmed vulnerabili
 fixed on `main` and disclosed through a GitHub security advisory, crediting the reporter
 unless they ask not to be named.
 
-This policy covers this template only. An application cut from it inherits this file
+This policy covers this template only. An extension cut from it inherits this file
 verbatim and replaces this section with its own commitments, and the reporting link
 above with its own repository's.
 
 ## Supported versions
 
-Only `main` is supported. Nothing here is packed, published, or released as a package,
-so there is no older version to patch: a fix lands on `main` and nowhere else. An
-application already cut from the template does not receive that fix automatically; it
-has to port the change itself.
+Only `main` is supported. The template itself is never published to a store, so there is
+no older version to patch: a fix lands on `main` and nowhere else. An extension already
+cut from the template does not receive that fix automatically; it has to port the change
+itself, and ship it as a new store version — browsers update installed extensions from
+the store, never from this repository.
+
+## What the extension itself guards
+
+- **No remote code.** Manifest V3 forbids executing code that is not in the package, and
+  the manifest keeps Chrome's default extension-page CSP; `tests/manifest.test.ts` fails
+  if a `content_security_policy` appears. ESLint refuses `eval`, `new Function` and
+  string-built markup (`innerHTML`, `insertAdjacentHTML`, `document.write`,
+  `dangerouslySetInnerHTML`) anywhere under `src/`.
+- **A pinned consent surface.** The permissions, host access, content-script matches,
+  `web_accessible_resources` and `externally_connectable` in the built manifest are
+  pinned literally by `tests/manifest.test.ts`, so widening any of them is a reviewed
+  diff.
+- **Stored values are parsed, not trusted.** Synced settings are read field by field
+  (`parseSettings`), because another device or release may have written them.
+- **Nothing secret is bundled.** Everything in the package is readable by anyone who
+  installs it; store credentials live only in the `store-submission` environment's
+  secrets.
 
 ## Supply-chain posture
 
@@ -83,28 +101,6 @@ Dependabot alerts and security updates, private vulnerability reporting itself, 
 `main` ruleset that `pnpm repo:ruleset` applies from `.github/rulesets/main.json`.
 AGENTS.md's "GitHub settings a new repository must enable" lists them and why each
 matters.
-
-## Patched dependencies
-
-`braces@3.0.3`, reached through ESLint's Next.js plugin and `fast-glob`, has a local
-pnpm patch for [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)
-(CVE-2026-93687). No fixed release is published as of 2026-10-02. The patch follows
-[upstream PR #72](https://github.com/micromatch/braces/pull/72) at commit
-`d0d575e55e74a4e0218e5248fafb79efc3e54ebb`: parsing caps combined brace and parenthesis
-nesting at 100, and the recursive compiler, expander and stringifier enforce the same
-cap for caller-supplied ASTs. A caller may select a stricter cap, but cannot raise it.
-
-`tests/braces-patch.test.ts` resolves the package that ESLint actually loads and checks
-deep patterns, direct ASTs, the safe boundary and ordinary file globs. pnpm applies the
-patch on every install; a missing or inapplicable patch fails the install or these
-regression tests. The lockfile retains version `3.0.3`, so a version-based scanner can
-still flag the advisory after the fix is applied. Replace the patched dependency with a
-fixed upstream release once one satisfies the supply-chain policy.
-
-The owner-approved exception in `osv-scanner.toml` suppresses only `GHSA-vfj7-8cjw-p6xm`
-and its aliases until 2026-10-16. All other advisories remain enabled, and the exception
-expires automatically. Remove the exception with the local patch when the fixed upstream
-release can be installed.
 
 ## Responsible disclosure
 

@@ -30,7 +30,7 @@ the GitHub API otherwise, do not watch CI, do not sleep or poll.
 </context>
 
 Base branch: {base_branch}
-Verification command: {verify_command, from step 3's smoke run}
+Verification command: {verify_command, from step 3's baseline run}
 Project conventions: read {workdir}/AGENTS.md (and the host's own instruction
 file, if any) before changing anything.
 
