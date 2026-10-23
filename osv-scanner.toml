@@ -1,0 +1,7 @@
+# Temporary OSV ignores. Each entry names one advisory, its reason, and an
+# expiry after which the scan fails again so the ignore is re-reviewed.
+
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+ignoreUntil = 2026-11-18
+reason = "braces 3.0.3 has no patched release yet; reached only via eslint-config-next > @next/eslint-plugin-next > fast-glob > micromatch (dev-time lint, never shipped)."
