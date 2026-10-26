@@ -49,7 +49,8 @@ Two consequences of a bump only the build-reading suites catch:
   `pnpm test:e2e`, or the suite fails on a missing executable rather than on anything
   the bump changed.
 
-Two checks run only on the PR. The `Dependency review` workflow fails on a new advisory
-or a denied license, and the weekly production audit described in the main skill fails
-on an advisory against a package in `dependencies` — a finding about code this extension
-ships to its users, not noise.
+The `Dependency review` workflow runs on every pull request and fails on a new advisory
+or a denied license. Scheduled and manual runs of the production audit described in the
+main skill check the resolved production graph, including WXT's optional-peer tooling
+closure. That audit skips pull requests and cannot independently identify code vendored
+inside a dependency's published files.

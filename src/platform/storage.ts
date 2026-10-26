@@ -1,4 +1,4 @@
-import { storage } from "wxt/utils/storage";
+import { storage } from "@wxt-dev/storage";
 
 import { parseSettings, type Settings } from "../core/settings";
 import type { WritableStoredValue } from "../core/stored-value";

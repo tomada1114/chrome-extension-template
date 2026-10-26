@@ -89,6 +89,14 @@ What this repository does today, and nothing more:
   check. Scheduled and manual runs scan history too and run
   `pnpm audit --prod --audit-level=moderate`. The audit fails closed: an audit service
   it cannot reach is a red run, not a green one.
+- **Runtime helpers in the production graph.** Browser, storage and i18n helpers are
+  direct runtime dependencies. WXT remains a build dependency; i18n's resolved optional
+  WXT peer also includes its injected runtime helpers and tooling closure in the audit.
+  This audits the resolved package graph rather than an exhaustive inventory of upstream
+  source components. The owner accepts that storage 1.3.0 embeds dequal/lite 2.0.3
+  without declaring it as a runtime dependency: the graph audit cannot separately
+  identify that code. Keeping the tested storage implementation avoids replacing its
+  migrations, watching and locking; its bundled code is reviewed when it changes.
 - **A pre-commit secret guard.** `lefthook`'s pre-commit hook runs
   `scripts/check-staged.mjs`, which refuses a staged `.env*` or `secrets/**` path and a
   credential in a staged file's content, including on the commit that concludes a
