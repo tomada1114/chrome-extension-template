@@ -114,4 +114,9 @@ describe.each([
     );
     expect(missing).toStrictEqual([]);
   });
+
+  it("keeps dashboard artwork outside the extension package", () => {
+    expect(existsSync(path.join(outputDirectory, "store-assets"))).toBe(false);
+    expect(existsSync(path.join(outputDirectory, "placeholder-icon.svg"))).toBe(false);
+  });
 });

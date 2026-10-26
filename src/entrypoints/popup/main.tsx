@@ -17,9 +17,10 @@ function Popup(): ReactElement {
     <CountPanel
       heading={i18n.t("popup.heading")}
       incrementLabel={i18n.t("popup.increment")}
+      incrementErrorLabel={i18n.t("popup.incrementError")}
       settingsLabel={i18n.t("popup.openOptions")}
       count={count}
-      onIncrement={() => void sendMessage("incrementCount")}
+      onIncrement={() => sendMessage("incrementCount")}
       onOpenSettings={() => void browser.runtime.openOptionsPage()}
     />
   );

@@ -4,7 +4,8 @@
   "popup": {
     "heading": "Clicks",
     "increment": "Count a click",
-    "openOptions": "Settings"
+    "openOptions": "Settings",
+    "incrementError": "Could not count the click. Try again."
   },
   "options": {
     "heading": "Settings",

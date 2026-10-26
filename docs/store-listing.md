@@ -89,6 +89,11 @@ rejection reason. Keep the answers consistent with `docs/privacy-policy.md`.
 
 ## Assets
 
+Keep dashboard upload artwork in [`store-assets/`](../store-assets/README.md), separate
+from `public/icon/`, which holds the icons installed with the extension. WXT does not
+copy `store-assets/` into either browser build or zip. Never put screenshots or promo
+tiles under `public/`: every file there ships to users.
+
 Chrome Web Store (https://developer.chrome.com/docs/webstore/images, checked
 2026-10-23):
 
