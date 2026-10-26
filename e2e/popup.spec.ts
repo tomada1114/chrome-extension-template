@@ -46,3 +46,31 @@ test("the badge follows the count and the options page turns it off", async ({
 
   await expect.poll(badgeText).toBe("");
 });
+
+test("a rejected increment message is announced and can be retried", async ({
+  context,
+  extensionId,
+  serviceWorker,
+}) => {
+  const popup = await context.newPage();
+  await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+  await expect(popup.getByRole("status")).toHaveText("0");
+
+  // Fail the handler's next storage write so the real message channel rejects.
+  await serviceWorker.evaluate(() => {
+    const set = chrome.storage.local.set.bind(chrome.storage.local);
+    chrome.storage.local.set = () => {
+      chrome.storage.local.set = set;
+      return Promise.reject(new Error("Storage unavailable"));
+    };
+  });
+
+  const increment = popup.getByRole("button", { name: en.popup.increment });
+  await increment.click();
+  await expect(popup.getByRole("alert")).toHaveText(en.popup.incrementError);
+  await expect(popup.getByRole("status")).toHaveText("0");
+  await expect(increment).toBeEnabled();
+  await increment.click();
+  await expect(popup.getByRole("status")).toHaveText("1");
+  await expect(popup.getByRole("alert")).toHaveCount(0);
+});

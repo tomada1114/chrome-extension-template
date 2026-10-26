@@ -71,8 +71,9 @@ neither failure is visible by default:
 
 - `useStoredState` drops a pending edit whose `set()` rejects, so the control snaps back
   to the stored value with no word said.
-- `sendMessage(...)` is a promise. The template's popup discards it with `void`, so a
-  handler that throws, or a service worker that is mid-update, fails silently.
+- `sendMessage(...)` is a promise. Pass it to a screen action that catches rejection and
+  announces it. The template's popup passes it to `CountPanel`, which prevents
+  overlapping increments and shows a catalog alert when the action rejects.
 
 A screen that must explain a failure has three duties:
 
