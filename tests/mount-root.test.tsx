@@ -15,6 +15,8 @@ describe("mountRoot", () => {
   });
 
   it("throws a coded error when the page has no #root", () => {
-    expect(() => mountRoot(document)).toThrow(/^ERR_MISSING_ROOT:/);
+    expect(() => mountRoot(document)).toThrow(
+      expect.objectContaining({ code: "ERR_MISSING_ROOT" }),
+    );
   });
 });

@@ -35,14 +35,8 @@ handling that matches on `message` text — match on `code`, or on the error's c
   branch of a `Result` from `src/core/result.ts`, so the caller cannot forget it the way
   an undocumented `throw` lets them.
 - A bug — a broken invariant, a page missing the element it renders into — throws,
-  because there is nothing useful for a caller to do with it. Such an error may be a
-  plain `Error` whose message opens with its code; `mountRoot` in
-  `src/components/mount-root.ts` throws `ERR_MISSING_ROOT: …` so the end-to-end suite
-  fails loudly instead of opening a blank popup. Nothing branches on it, and the one
-  sanctioned match on its message is a test anchored on the code prefix
-  (`/^ERR_MISSING_ROOT:/`), never on the prose after it.
-- The moment a caller does need to branch on a thrown error, it gets a class with a
-  literal `code`, and the message-prefix form is retired for it.
+  because there is nothing useful for a caller to do with it. Give the error a literal
+  `code` property, either on an error class or assigned to a plain `Error`.
 
 ## Shape of an error class
 
