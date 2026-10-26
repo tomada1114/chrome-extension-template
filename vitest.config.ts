@@ -23,6 +23,7 @@ const automationTests = [
   "tests/agent-tiers.test.ts",
   "tests/apply-ruleset.test.ts",
   "tests/boundaries.test.ts",
+  "tests/build-freshness.test.ts",
   "tests/check-staged.test.ts",
   "tests/ci-sync.test.ts",
   "tests/ci-watch.test.ts",
@@ -50,7 +51,7 @@ const automationTests = [
 // another entry in `automationTests` — the default run (`pnpm test`,
 // `pnpm test:coverage`, and ci.yml's `test` job) has no build to read, and a
 // suite that quietly built one for itself would pay for a second build in every
-// workflow. It refuses to run against a missing build instead, so the build
+// workflow. It refuses missing output or inputs newer than the manifest, so the build
 // stays the caller's to do exactly once. `pnpm run test:manifest` is what runs
 // it, from `check:source` and from ci.yml's `extension` job immediately after
 // both builds. Naming the file here is still what keeps it out of `unit` below,

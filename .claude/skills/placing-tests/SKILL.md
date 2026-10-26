@@ -88,10 +88,12 @@ environment it needs — never from its name or its subject:
   in-process test could have asserted the same thing; prefer `unit` or `component`
   whenever one could.
 
-Both build-reading suites check that a build exists (`ERR_MANIFEST_NO_BUILD`,
-`ERR_E2E_NO_BUILD`), not that it is current. A build left from before the change passes
-while proving nothing about it, so fresh Chrome and Edge builds come immediately before
-the manifest suite; `pnpm build` comes immediately before the end-to-end suite.
+Both build-reading suites refuse a missing build (`ERR_MANIFEST_NO_BUILD`,
+`ERR_E2E_NO_BUILD`) or an input file newer than its manifest
+(`ERR_MANIFEST_STALE_BUILD`, `ERR_E2E_STALE_BUILD`). The shared check covers `src/`,
+`public/` and `wxt.config.ts`; it does not detect deleted files or edits with preserved
+timestamps. Fresh Chrome and Edge builds still precede the manifest suite; `pnpm build`
+precedes the end-to-end suite.
 
 The two directions fail differently, which is why `automation` is a list rather than a
 glob. Forgetting to register a test that does I/O leaves it in `unit`, where the short

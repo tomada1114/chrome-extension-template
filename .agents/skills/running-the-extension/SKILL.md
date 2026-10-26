@@ -45,8 +45,10 @@ windows and profile.
 ## The build under test
 
 - The fixture in `e2e/fixtures.ts` throws `ERR_E2E_NO_BUILD` when `.output/chrome-mv3/`
-  has no manifest, and nothing else: a build older than your last edit passes. Run
-  `pnpm build` after the last edit, every time, in the same command as the suite.
+  has no manifest, or `ERR_E2E_STALE_BUILD` when `src/`, `public/` or `wxt.config.ts`
+  contains a file newer than that manifest. Deletions and edits that preserve timestamps
+  still need a rebuild: run `pnpm build` after the last edit, in the same command as the
+  suite.
 - A missing browser is `pnpm e2e:browsers`, once per machine.
 - The suite runs the Chrome build only. `pnpm build:edge` proves the Edge build
   compiles; nothing here loads it.

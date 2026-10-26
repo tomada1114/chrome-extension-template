@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -9,12 +8,10 @@ import {
   type Worker,
 } from "@playwright/test";
 
-const extensionPath = path.join(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-  ".output",
-  "chrome-mv3",
-);
+import { assertFreshBuild } from "../scripts/lib/build-freshness.mjs";
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const extensionPath = path.join(repoRoot, ".output", "chrome-mv3");
 
 interface ExtensionFixtures {
   context: BrowserContext;
@@ -25,11 +22,12 @@ interface ExtensionFixtures {
 export const test = base.extend<ExtensionFixtures>({
   // eslint-disable-next-line no-empty-pattern -- Playwright reads a fixture's dependencies from this destructuring pattern; an empty one is how a fixture declares it needs none.
   context: async ({}, use) => {
-    if (!existsSync(path.join(extensionPath, "manifest.json"))) {
-      throw new Error(
-        `ERR_E2E_NO_BUILD: ${extensionPath} has no build; run \`pnpm build\` first`,
-      );
-    }
+    assertFreshBuild({
+      root: repoRoot,
+      manifestPath: path.join(extensionPath, "manifest.json"),
+      stage: "E2E",
+      buildCommand: "pnpm build",
+    });
     const context = await chromium.launchPersistentContext("", {
       channel: "chromium",
       args: [
