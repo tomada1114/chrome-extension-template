@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeBrowser } from "wxt/testing/fake-browser";
 
 import { incrementCount, refreshBadge, startBackground } from "../src/background";
@@ -46,6 +46,37 @@ describe("startBackground", () => {
     stop = startBackground();
     await expect(sendMessage("incrementCount")).resolves.toBe(1);
     await expect(clickCount.get()).resolves.toBe(1);
+  });
+
+  it("counts every overlapping increment message", async () => {
+    stop = startBackground();
+    const counts = await Promise.all([
+      sendMessage("incrementCount"),
+      sendMessage("incrementCount"),
+    ]);
+
+    expect(counts).toEqual([1, 2]);
+    await expect(clickCount.get()).resolves.toBe(2);
+  });
+
+  it("rejects a failed increment without blocking later messages", async () => {
+    stop = startBackground();
+    vi.spyOn(fakeBrowser.storage.local, "set").mockRejectedValueOnce(
+      Object.assign(new Error("Storage write failed"), {
+        code: "ERR_TEST_STORAGE_WRITE",
+      }),
+    );
+
+    const failed = sendMessage("incrementCount");
+    const next = sendMessage("incrementCount");
+
+    await Promise.all([
+      expect(failed).rejects.toMatchObject({ code: "ERR_TEST_STORAGE_WRITE" }),
+      expect(next).resolves.toBe(1),
+    ]);
+    await expect(clickCount.get()).resolves.toBe(1);
+    await expect(sendMessage("incrementCount")).resolves.toBe(2);
+    await expect(clickCount.get()).resolves.toBe(2);
   });
 
   it("keeps the badge in line when the count or the setting changes", async () => {
