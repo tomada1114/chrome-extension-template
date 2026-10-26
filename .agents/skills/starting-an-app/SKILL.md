@@ -92,15 +92,18 @@ tested example. Keep that property while replacing it:
 
 `public/icon/` holds placeholder PNGs at 16, 32, 48, 96 and 128 pixels, which WXT finds
 by name and writes into the manifest's `icons` (observed in the built manifest,
-2026-10-23). Replace each file with the extension's artwork at the same name and size;
-the toolbar uses the small ones, so draw those for their size rather than shrinking the
-large one.
+2026-10-23). Their crossed, dashed-frame mark means "replace me"; the larger sizes also
+say `REPLACE`. Replace every file with the extension's artwork at the same name and
+size; the toolbar uses the small ones, so draw those for their size rather than
+shrinking the large one.
 
 The store asks for more than the zip carries: a 128x128 icon whose artwork is 96x96 with
 transparent padding, a 440x280 small promotional tile, and one to five screenshots at
 1280x800 or 640x400 (<https://developer.chrome.com/docs/webstore/images>, checked
 2026-10-23). Those are uploaded in the store dashboard, not shipped: keep them out of
-`public/`, whose every file lands in the package. **BACKGROUND:** `releasing-to-stores`.
+`public/`, whose every file lands in the package. Save store artwork in `store-assets/`;
+its README separates the dashboard uploads from the packaged icons. **BACKGROUND:**
+`releasing-to-stores`.
 
 ## The locale decision
 
