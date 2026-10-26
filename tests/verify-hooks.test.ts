@@ -514,10 +514,11 @@ describe("package.json's prepare script", () => {
       path.join(repoRoot, "scripts", "lib", "git-env.mjs"),
       path.join(root, "scripts", "lib", "git-env.mjs"),
     );
+    mkdirSync(path.join(root, "node_modules", ".bin"));
     symlinkSync(
-      path.join(repoRoot, "node_modules", ".bin"),
-      path.join(root, "node_modules", ".bin"),
-      "dir",
+      path.join(repoRoot, "node_modules", "lefthook", "bin", "index.js"),
+      path.join(root, "node_modules", ".bin", "lefthook"),
+      "file",
     );
     writeFileSync(
       path.join(root, "package.json"),
