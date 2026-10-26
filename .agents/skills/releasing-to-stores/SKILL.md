@@ -128,7 +128,9 @@ credentials against the item; for Edge it returns before any request and checks 
   (https://developer.chrome.com/docs/webstore/program-policies/privacy, checked
   2026-10-23). The disclosures are the human's certification; the agent drafts them.
 - Asset sizes differ by store; the checklist in `docs/store-listing.md` carries both
-  sets with their sources.
+  sets with their sources. Keep dashboard artwork in `store-assets/`, outside `public/`,
+  so it is not copied into the extension build or zip. Its README names the upload
+  files; `public/icon/` contains only the packaged extension icons.
 
 ## Review, rejection and rollback
 
