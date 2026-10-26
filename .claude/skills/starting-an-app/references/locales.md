@@ -44,5 +44,5 @@ English value passes every check and ships an untranslated listing.
 pnpm exec wxt prepare
 pnpm exec vitest run tests/locales.test.ts tests/placeholders.test.ts
 pnpm typecheck
-pnpm build && pnpm test:manifest && pnpm test:e2e
+pnpm build && pnpm build:edge && pnpm test:manifest && pnpm test:e2e
 ```

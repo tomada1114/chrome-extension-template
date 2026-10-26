@@ -60,8 +60,8 @@ Useful focused commands are `pnpm check:source`, `pnpm test`, and `pnpm test:cov
 Neither of the last two is the whole suite: both leave out the two suites that read a
 build — `pnpm test:manifest` and `pnpm test:e2e` — which refuse to run against a missing
 build rather than building one themselves. Run them with
-`pnpm build && pnpm test:manifest && pnpm test:e2e`; `pnpm check:source` runs every
-half, in that order.
+`pnpm build && pnpm build:edge && pnpm test:manifest && pnpm test:e2e`;
+`pnpm check:source` runs every half, in that order.
 
 ## Dependency cooldown
 

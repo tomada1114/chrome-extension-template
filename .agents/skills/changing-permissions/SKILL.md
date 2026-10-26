@@ -51,10 +51,9 @@ justification table, and the pull request says so.
 
 The WXT additions are observed in `node_modules/wxt/dist/core/utils/manifest.mjs` (WXT
 0.21.4, 2026-10-23). `pnpm dev` adds `tabs`, `scripting`, a localhost host permission
-and a looser CSP to the manifest it serves; none of it ships, and the suite reads only
-the `pnpm build` output. That output is Chrome's: the Edge build comes from the same
-config, but read `.output/edge-mv3/manifest.json` after `pnpm build:edge` whenever an
-option is set per browser.
+and a looser CSP to the manifest it serves; none of it ships. The suite reads the
+production manifests from both `pnpm build` and `pnpm build:edge`, including any
+browser-specific options the shared config applies.
 
 ## The narrowest grant that works
 
@@ -102,9 +101,9 @@ Take the first rung that serves the feature:
 ## The procedure, once approved
 
 1. Edit `wxt.config.ts` or the content script's `matches`.
-2. `pnpm build`, then read `.output/chrome-mv3/manifest.json`. If the build added
-   anything the human did not approve — a WXT addition from the table above — stop and
-   ask again.
+2. `pnpm build && pnpm build:edge`, then read both manifests under
+   `.output/{chrome,edge}-mv3/`. If either build added anything the human did not
+   approve — a WXT addition from the table above — stop and ask again.
 3. Update `EXPECTED_CONSENT` in `tests/manifest.test.ts` to the approved value,
    literally. The literal is the point: it puts the consent change in the diff a
    reviewer reads. Never loosen the assertion instead.

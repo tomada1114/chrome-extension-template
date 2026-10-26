@@ -58,6 +58,9 @@ jobs:
       - name: Build
         run: pnpm run build
 
+      - name: Build for Edge
+        run: pnpm run build:edge
+
       - name: Manifest test
         run: pnpm run test:manifest
 

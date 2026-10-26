@@ -10,7 +10,8 @@ pnpm install            # regenerates pnpm-lock.yaml and .wxt/; must succeed und
 pnpm check:quick        # format, lint, typecheck, tests
 pnpm build              # wxt build — the bundler, the manifest and every entrypoint,
                         # which no unit test exercises
-pnpm test:manifest      # the consent surface the new build generated
+pnpm build:edge         # the Edge target, also checked by the manifest suite
+pnpm test:manifest      # the consent surface both builds generated
 pnpm test:e2e           # the built extension, loaded into Chromium
 pnpm test:coverage      # the coverage floors, which a swapped dependency can move
 ```

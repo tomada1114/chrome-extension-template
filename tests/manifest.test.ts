@@ -7,13 +7,11 @@ import { repoRoot } from "./repo-tree";
 
 // What a user consents to, and what store review reads, is the generated
 // manifest — not wxt.config.ts or an entrypoint's options on their own. This
-// suite reads `.output/chrome-mv3/manifest.json` after `pnpm build` and pins
+// suite reads both Chrome and Edge manifests after their builds and pins
 // those parts as literals, so a change to a permission or a match pattern
 // cannot land without a diff to this file in the same pull request, where a
 // reviewer sees the consent prompt change. `changing-permissions` owns when
 // such a diff is the right one.
-
-const outputDirectory = path.join(repoRoot, ".output", "chrome-mv3");
 
 /** The consent surface, exactly. Every field a user is asked to accept. */
 const EXPECTED_CONSENT = {
@@ -44,19 +42,23 @@ interface Manifest {
   background?: { service_worker?: string; type?: string };
 }
 
-let manifest: Manifest;
+describe.each([
+  { browser: "Chrome", directory: "chrome-mv3", buildCommand: "pnpm build" },
+  { browser: "Edge", directory: "edge-mv3", buildCommand: "pnpm build:edge" },
+])("the built $browser manifest", ({ directory, buildCommand }) => {
+  const outputDirectory = path.join(repoRoot, ".output", directory);
+  let manifest: Manifest;
 
-beforeAll(() => {
-  const file = path.join(outputDirectory, "manifest.json");
-  if (!existsSync(file)) {
-    throw new Error(
-      `ERR_MANIFEST_NO_BUILD: ${file} does not exist; run \`pnpm build\` first`,
-    );
-  }
-  manifest = JSON.parse(readFileSync(file, "utf8")) as Manifest;
-});
+  beforeAll(() => {
+    const file = path.join(outputDirectory, "manifest.json");
+    if (!existsSync(file)) {
+      throw new Error(
+        `ERR_MANIFEST_NO_BUILD: ${file} does not exist; run \`${buildCommand}\` first`,
+      );
+    }
+    manifest = JSON.parse(readFileSync(file, "utf8")) as Manifest;
+  });
 
-describe("the built manifest", () => {
   it("is Manifest V3 with a service worker background", () => {
     expect(manifest.manifest_version).toBe(3);
     expect(manifest.background?.service_worker).toBeTypeOf("string");

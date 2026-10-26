@@ -44,8 +44,8 @@ const automationTests = [
   "tests/workflows.test.ts",
 ];
 
-// The one suite that needs `pnpm build`'s output on disk before it can run at
-// all: it reads `.output/chrome-mv3/manifest.json` and pins what a user
+// The one suite that needs both browser builds on disk before it can run at
+// all: it reads `.output/{chrome,edge}-mv3/manifest.json` and pins what a user
 // consents to at install time. That is why it is its own project rather than
 // another entry in `automationTests` — the default run (`pnpm test`,
 // `pnpm test:coverage`, and ci.yml's `test` job) has no build to read, and a
@@ -53,7 +53,7 @@ const automationTests = [
 // workflow. It refuses to run against a missing build instead, so the build
 // stays the caller's to do exactly once. `pnpm run test:manifest` is what runs
 // it, from `check:source` and from ci.yml's `extension` job immediately after
-// `Build`. Naming the file here is still what keeps it out of `unit` below,
+// both builds. Naming the file here is still what keeps it out of `unit` below,
 // whose glob would otherwise collect it on a 5-second budget.
 //
 // The end-to-end suite under `e2e/` is Playwright's, not Vitest's, and no glob

@@ -124,7 +124,7 @@ resolve in HTML: each screen's `<title>` is empty in `index.html` and set from
 `main.tsx` with `document.title = i18n.t("extName")`.
 
 Renaming `extName` or `extDescription` is a manifest change: edit `wxt.config.ts` in the
-same commit, then `pnpm build && pnpm test:manifest`.
+same commit, then `pnpm build && pnpm build:edge && pnpm test:manifest`.
 
 ## The store listing
 
