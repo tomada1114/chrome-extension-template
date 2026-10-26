@@ -112,6 +112,40 @@ output only; never judge consent from a dev build.
   private is rendered there. The `"ui"` mode is also the row in the table above that
   adds `web_accessible_resources`.
 
+### Keep the template marker small; migrate a product's UI deliberately
+
+The template keeps its plain-DOM marker, per the owner's decision on issue #8
+(2026-10-23). It is a minimal example intended to be removed on day one. That example
+does not justify publishing content-script CSS through `web_accessible_resources` by
+default; the owner chose to avoid the associated installation-detection exposure. Its
+inline styles are a template compromise, not the pattern for a product's styled UI.
+
+When a product replaces the marker with a real in-page UI:
+
+1. Settle its design with **REQUIRED:** `designing-ui`. Before introducing the CSS
+   resource exposure, follow **REQUIRED:** `changing-permissions` to propose and obtain
+   sign-off for the concrete manifest diff and explain why the product needs it.
+2. In `src/entrypoints/content.ts`, replace the `mountMarker` wiring with a dedicated
+   stylesheet import and `cssInjectionMode: "ui"`. Keep `matches` as narrow as the
+   product requires; the migration itself does not justify widening host access.
+3. Use `createShadowRootUi` from `wxt/utils/content-script-ui/shadow-root` with the
+   existing `ctx`, then mount the returned UI. Keep DOM behavior in `src/content/`; if
+   rendering React, mount the `src/components/` component from the entrypoint, as
+   required by the zone boundary above. Use `onMount` for mounting and `onRemove` for
+   renderer teardown and any effects it owns. Preserve invalidation cleanup so an
+   extension update cannot leave the previous UI behind. The API and its invalidation
+   removal were observed in
+   `node_modules/wxt/dist/utils/content-script-ui/shadow-root.d.mts` and
+   `shadow-root.mjs`, WXT 0.21.4, 2026-10-26.
+4. Build both browsers, inspect their generated manifests, and update
+   `EXPECTED_CONSENT.web_accessible_resources` in `tests/manifest.test.ts` to the exact
+   generated resources and matches. Justify those exposed CSS resources and origins in
+   the PR; do not copy an expectation without reviewing what becomes accessible.
+5. Replace the marker-specific tests alongside its removal. Keep `e2e/content.spec.ts`
+   proving that the replacement renders on a matching page and is absent on a
+   nonmatching page; add style-isolation and teardown coverage for the new UI. Run
+   `pnpm test:manifest`, `pnpm test:e2e`, then `pnpm check:source`.
+
 ## Adding a message
 
 1. Declare it in `ProtocolMap` in `src/platform/messaging.ts` with a one-line TSDoc: the
