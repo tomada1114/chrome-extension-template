@@ -30,8 +30,18 @@ export async function refreshBadge(): Promise<void> {
  * one starts from a worker with no listeners.
  */
 export function startBackground(): () => void {
+  // Coordinate overlapping requests only while this worker lives; the count
+  // itself is read from and written to storage for every increment.
+  let incrementQueue = Promise.resolve();
   const stops = [
-    onMessage("incrementCount", () => incrementCount()),
+    onMessage("incrementCount", () => {
+      const result = incrementQueue.then(incrementCount);
+      incrementQueue = result.then(
+        () => undefined,
+        () => undefined,
+      );
+      return result;
+    }),
     clickCount.watch(() => void refreshBadge()),
     settings.watch(() => void refreshBadge()),
   ];
