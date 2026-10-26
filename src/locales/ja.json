@@ -4,7 +4,8 @@
   "popup": {
     "heading": "クリック数",
     "increment": "クリックを数える",
-    "openOptions": "設定"
+    "openOptions": "設定",
+    "incrementError": "クリックを数えられませんでした。もう一度お試しください。"
   },
   "options": {
     "heading": "設定",
