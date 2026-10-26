@@ -8,7 +8,9 @@
 export function mountRoot(document: Document): HTMLElement {
   const root = document.getElementById("root");
   if (root === null) {
-    throw new Error("ERR_MISSING_ROOT: the page has no #root element to render into");
+    throw Object.assign(new Error("The page has no #root element to render into"), {
+      code: "ERR_MISSING_ROOT" as const,
+    });
   }
   return root;
 }

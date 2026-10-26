@@ -75,9 +75,8 @@ the test needs an exception.
 ## Asserting errors
 
 Assert the error's stable `code`, never its message text: `toMatchObject({ code })`, or
-`instanceof` when the error never crossed a message. An error that carries its code as a
-message prefix instead of a field is matched on that prefix alone
-(`toThrow(/^ERR_MISSING_ROOT:/)`), never on the sentence after it. **BACKGROUND:**
+`instanceof` when the error never crossed a message. For a synchronous throw, use
+`toThrow(expect.objectContaining({ code: "ERR_MISSING_ROOT" }))`. **BACKGROUND:**
 `designing-errors` explains why `message` is not a contract, and why the class does not
 survive a message.
 
