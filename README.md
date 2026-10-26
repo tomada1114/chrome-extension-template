@@ -58,7 +58,7 @@ Developer mode on), pointing it at `.output/chrome-mv3/`.
 ```sh
 pnpm test             # unit, component and automation suites
 pnpm e2e:browsers     # once per machine: Playwright's Chromium
-pnpm build && pnpm test:manifest && pnpm test:e2e
+pnpm build && pnpm build:edge && pnpm test:manifest && pnpm test:e2e
 pnpm check:source     # everything CI runs, in one command
 ```
 

@@ -77,7 +77,7 @@ pnpm check:source   # the full gate: builds, manifest test, end-to-end, coverage
 pnpm fix            # ESLint autofix, then Prettier
 pnpm test           # unit, component and automation tests
 pnpm test:coverage  # the same with the coverage floors enforced
-pnpm test:manifest  # pins the permissions in the last `pnpm build`'s manifest
+pnpm test:manifest  # pins permissions in both Chrome and Edge build manifests
 pnpm test:e2e       # loads the last `pnpm build` into headless Chromium (Playwright)
 pnpm e2e:browsers   # install Playwright's Chromium once per machine
 pnpm test:skills    # the shipping-issues skill's Python script tests (needs python3; ~2 min)
@@ -158,22 +158,22 @@ prepares the release (`releasing-to-stores`) and stops before the push.
 Run the narrowest check that can fail, then the gate. Reaching for `pnpm check:source`
 on every edit is slow enough that it stops being run at all.
 
-| What you changed                                          | The narrowest check that can fail                                        |
-| --------------------------------------------------------- | ------------------------------------------------------------------------ |
-| A module under `src/core/`                                | `pnpm exec vitest run tests/<module>.test.ts`                            |
-| A module under `src/platform/`, `background/`, `content/` | `pnpm exec vitest run tests/<module>.test.ts` (runs on `fakeBrowser`)    |
-| A component or hook under `src/components/`               | `pnpm exec vitest run tests/<name>.test.tsx`                             |
-| An entrypoint under `src/entrypoints/`                    | `pnpm build`, then `pnpm test:e2e`                                       |
-| `wxt.config.ts`, a permission, or a content-script match  | `pnpm build`, then `pnpm test:manifest` and `pnpm test:e2e`              |
-| A catalog under `src/locales/`                            | `pnpm exec wxt prepare && pnpm exec vitest run tests/locales.test.ts`    |
-| `src/assets/globals.css` or a screen's styling            | `pnpm build`, then `pnpm test:e2e`                                       |
-| An import that crosses a zone boundary                    | `pnpm exec vitest run tests/boundaries.test.ts`                          |
-| A test                                                    | `pnpm exec vitest run tests/<name>.test.ts`                              |
-| A spec under `e2e/`                                       | `pnpm build`, then `pnpm exec playwright test e2e/<name>.spec.ts`        |
-| A script under `scripts/`                                 | `pnpm exec vitest run tests/<script>.test.ts`                            |
-| A skill under `.agents/skills/`                           | `pnpm agents:sync && pnpm agents:check && pnpm test && pnpm test:skills` |
-| `package.json`, `pnpm-workspace.yaml`                     | `pnpm install`, then `pnpm check:source`                                 |
-| Markdown                                                  | `pnpm fix`                                                               |
+| What you changed                                          | The narrowest check that can fail                                              |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| A module under `src/core/`                                | `pnpm exec vitest run tests/<module>.test.ts`                                  |
+| A module under `src/platform/`, `background/`, `content/` | `pnpm exec vitest run tests/<module>.test.ts` (runs on `fakeBrowser`)          |
+| A component or hook under `src/components/`               | `pnpm exec vitest run tests/<name>.test.tsx`                                   |
+| An entrypoint under `src/entrypoints/`                    | `pnpm build`, then `pnpm test:e2e`                                             |
+| `wxt.config.ts`, a permission, or a content-script match  | `pnpm build && pnpm build:edge`, then `pnpm test:manifest` and `pnpm test:e2e` |
+| A catalog under `src/locales/`                            | `pnpm exec wxt prepare && pnpm exec vitest run tests/locales.test.ts`          |
+| `src/assets/globals.css` or a screen's styling            | `pnpm build`, then `pnpm test:e2e`                                             |
+| An import that crosses a zone boundary                    | `pnpm exec vitest run tests/boundaries.test.ts`                                |
+| A test                                                    | `pnpm exec vitest run tests/<name>.test.ts`                                    |
+| A spec under `e2e/`                                       | `pnpm build`, then `pnpm exec playwright test e2e/<name>.spec.ts`              |
+| A script under `scripts/`                                 | `pnpm exec vitest run tests/<script>.test.ts`                                  |
+| A skill under `.agents/skills/`                           | `pnpm agents:sync && pnpm agents:check && pnpm test && pnpm test:skills`       |
+| `package.json`, `pnpm-workspace.yaml`                     | `pnpm install`, then `pnpm check:source`                                       |
+| Markdown                                                  | `pnpm fix`                                                                     |
 
 ## Architecture
 

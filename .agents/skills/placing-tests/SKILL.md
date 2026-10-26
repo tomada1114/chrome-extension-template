@@ -74,12 +74,13 @@ environment it needs — never from its name or its subject:
   asserting against files rather than imported code — `tests/locales.test.ts` and
   `tests/boundaries.test.ts` included.
 - **`manifest`** — the `manifestTests` list beside it, one file today. A test joins it
-  only when it cannot run without `pnpm build`'s output on disk:
-  `tests/manifest.test.ts` reads `.output/chrome-mv3/manifest.json`. The default run
-  (`pnpm test`, `pnpm test:coverage`, and ci.yml's `test` job) leaves it out, because
-  there is no build there to read and a suite that built one for itself would pay for a
-  second build in every workflow. `pnpm test:manifest` runs it, from `check:source` and
-  from ci.yml's `Build and end-to-end` job, straight after the build.
+  only when it cannot run without the Chrome and Edge builds on disk:
+  `tests/manifest.test.ts` reads both `.output/{chrome,edge}-mv3/manifest.json` files.
+  The default run (`pnpm test`, `pnpm test:coverage`, and ci.yml's `test` job) leaves it
+  out, because there is no build there to read and a suite that built one for itself
+  would pay for a second build in every workflow. `pnpm test:manifest` runs it, from
+  `check:source` and from ci.yml's `Build and end-to-end` job, straight after both
+  builds.
 - **`e2e/`** — Playwright, loading the same build into Chromium. A spec belongs here
   only when what it checks exists only in a loaded extension: an entrypoint's wiring, a
   message crossing two real contexts, a content script on a page. It runs from
@@ -89,7 +90,8 @@ environment it needs — never from its name or its subject:
 
 Both build-reading suites check that a build exists (`ERR_MANIFEST_NO_BUILD`,
 `ERR_E2E_NO_BUILD`), not that it is current. A build left from before the change passes
-while proving nothing about it, so `pnpm build` comes immediately before either.
+while proving nothing about it, so fresh Chrome and Edge builds come immediately before
+the manifest suite; `pnpm build` comes immediately before the end-to-end suite.
 
 The two directions fail differently, which is why `automation` is a list rather than a
 glob. Forgetting to register a test that does I/O leaves it in `unit`, where the short
@@ -166,7 +168,7 @@ module a unit test can call in-process on `fakeBrowser`.
 ```bash
 pnpm exec vitest run tests/<name>.test.ts   # one file, fast iteration
 pnpm test:coverage                          # unit, component, automation with floors
-pnpm build && pnpm test:manifest            # the manifest project, which reads the build
+pnpm build && pnpm build:edge && pnpm test:manifest            # reads both browser manifests
 pnpm build && pnpm test:e2e                 # the Playwright suite (pnpm e2e:browsers once)
 ```
 

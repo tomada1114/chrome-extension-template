@@ -54,8 +54,8 @@ script, the `check:source` composition, and the matching `ci.yml` step. The suit
 if either of the last two is skipped, whichever way round. What it does not judge is
 _which_ job a CI step lands in: steps are collected across all jobs, so a check that
 belongs in `static` but sits in `test` satisfies both directions. That one is still read
-by a human, and so is the order inside `extension`: `test:manifest` and `test:e2e` read
-the build the job's own `Build` step wrote, so they come after it in the same job.
+by a human, and so is the order inside `extension`: `test:manifest` reads both browser
+builds, while `test:e2e` reads Chrome. Each comes after its builds in the same job.
 
 `release.yml` is outside that suite. Its `package` job re-runs the build, the manifest
 test and the end-to-end suite against the tagged commit before it packages anything, and
@@ -72,10 +72,10 @@ protection an edit removes and what its review must explain.
 
 ## What no gate here sees
 
-Two suites read the build: `pnpm test:manifest` pins the generated manifest's consent
-surface, and `pnpm test:e2e` loads `.output/chrome-mv3/` into Playwright's Chromium and
-drives the popup, the options page, the service worker and the content script on a page
-the spec serves itself. They run from `check:source`, from ci.yml's
+Two suites read build output: `pnpm test:manifest` pins both Chrome and Edge manifests'
+consent surface, and `pnpm test:e2e` loads `.output/chrome-mv3/` into Playwright's
+Chromium and drives the popup, the options page, the service worker and the content
+script on a page the spec serves itself. They run from `check:source`, from ci.yml's
 `Build and end-to-end` job and from `release.yml`, never from `pnpm test` or
 `pnpm check:quick`, and neither builds for itself. Each refuses a missing build but not
 a stale one, so a run against a build from before the change passes while proving

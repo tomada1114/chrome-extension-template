@@ -82,8 +82,8 @@ jobs:
       - name: Build for Edge
         run: pnpm run build:edge
 
-      # Reads the manifest `Build` just wrote and pins the permissions a user
-      # is asked to accept. It sits immediately after the build it reads, for
+      # Reads both manifests the builds just wrote and pins the permissions a user
+      # is asked to accept. It sits immediately after the builds it reads, for
       # the same reason the end-to-end suite below does: in the `test` job
       # there is no build, and giving it one would build the extension twice
       # in a single workflow.

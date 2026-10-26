@@ -96,7 +96,7 @@ installed, which CI's `Install Chromium for Playwright` step does on its own.
 **Fix:** reproduce it locally, since the CI log truncates the part that matters:
 
 ```bash
-pnpm install --frozen-lockfile && pnpm run build && pnpm run test:manifest
+pnpm install --frozen-lockfile && pnpm run build && pnpm run build:edge && pnpm run test:manifest
 pnpm run e2e:browsers && pnpm run test:e2e
 ```
 
