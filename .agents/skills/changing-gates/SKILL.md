@@ -77,10 +77,11 @@ consent surface, and `pnpm test:e2e` loads `.output/chrome-mv3/` into Playwright
 Chromium and drives the popup, the options page, the service worker and the content
 script on a page the spec serves itself. They run from `check:source`, from ci.yml's
 `Build and end-to-end` job and from `release.yml`, never from `pnpm test` or
-`pnpm check:quick`, and neither builds for itself. Each refuses a missing build but not
-a stale one, so a run against a build from before the change passes while proving
-nothing about it. A green `check:quick` says nothing about anything only a loaded
-extension shows.
+`pnpm check:quick`, and neither builds for itself. Both refuse missing builds and inputs
+under `src/`, `public/` or `wxt.config.ts` newer than the target's manifest. This
+timestamp check cannot detect a deletion or an edit that preserves its timestamp, so
+each suite still follows fresh builds. A green `check:quick` says nothing about anything
+only a loaded extension shows.
 
 Beyond those, a change can be wrong while every gate passes:
 

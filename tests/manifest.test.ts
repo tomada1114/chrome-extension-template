@@ -3,6 +3,8 @@ import path from "node:path";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { assertFreshBuild } from "../scripts/lib/build-freshness.mjs";
+
 import { repoRoot } from "./repo-tree";
 
 // What a user consents to, and what store review reads, is the generated
@@ -51,11 +53,12 @@ describe.each([
 
   beforeAll(() => {
     const file = path.join(outputDirectory, "manifest.json");
-    if (!existsSync(file)) {
-      throw new Error(
-        `ERR_MANIFEST_NO_BUILD: ${file} does not exist; run \`${buildCommand}\` first`,
-      );
-    }
+    assertFreshBuild({
+      root: repoRoot,
+      manifestPath: file,
+      stage: "MANIFEST",
+      buildCommand,
+    });
     manifest = JSON.parse(readFileSync(file, "utf8")) as Manifest;
   });
 

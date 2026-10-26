@@ -25,10 +25,10 @@ Import `test` and `expect` from `./fixtures`, never from `@playwright/test` dire
   `chrome-extension://${extensionId}/<name>.html`, the file name WXT gives the
   entrypoint.
 
-The fixture refuses to start without a build (`ERR_E2E_NO_BUILD`). It checks that one
-exists, not that it is current: a `.output/chrome-mv3/` left from before the change
-passes every assertion while proving nothing about it. Run `pnpm build` immediately
-before the suite.
+The fixture refuses to start without a build (`ERR_E2E_NO_BUILD`) or when a file under
+`src/`, `public/` or `wxt.config.ts` is newer than its manifest (`ERR_E2E_STALE_BUILD`).
+Timestamp checks do not detect deletions or edits that preserve timestamps, so run
+`pnpm build` immediately before the suite.
 
 ## A host page, served offline
 
