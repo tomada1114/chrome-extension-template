@@ -134,9 +134,9 @@ of logic belongs in (`building-entrypoints`); a stored key's declaration and mig
   the direction and `eslint.config.mjs`'s `boundaries/*` blocks carry the patterns, with
   `tests/boundaries.test.ts` asserting the same shape from the module graph. Read those
   rather than a summary here.
-- Auto-imports are off (`imports: false` in `wxt.config.ts`), so `browser`, `storage`
-  and every `define*` helper is imported by name from its `wxt/...` subpath. An import
-  the reader cannot see is an edge neither boundary check can see either.
+- Auto-imports are off (`imports: false` in `wxt.config.ts`), so `browser` and `storage`
+  are imported from `@wxt-dev/browser` and `@wxt-dev/storage`; `define*` helpers use
+  `wxt/...` subpaths. An invisible import is an edge neither boundary check can see.
 - A module names every symbol it exports. `export *` is banned under `src/`
   (`no-restricted-syntax`), so what a zone offers the one above is exactly what a
   reviewer can read in a diff, and a default export is reserved for the entrypoint files

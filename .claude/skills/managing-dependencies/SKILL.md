@@ -65,10 +65,18 @@ which is what the weekly `security-audit.yml` job audits with `pnpm audit --prod
 build- or test-only package belongs in `devDependencies`, where an advisory is handled
 by a bot PR instead of paging whoever reads that schedule.
 
-The split is not exact, and the gap is worth knowing: `wxt` is a devDependency because
-it is the build tool, yet `src/` imports its runtime helpers (`wxt/browser`,
-`wxt/utils/storage`), so part of it is bundled while the production audit never looks at
-it. A bump to it is judged as a shipped dependency, not as tooling.
+Use `@wxt-dev/browser` and `@wxt-dev/storage` directly; they and `@wxt-dev/i18n` are
+runtime dependencies. `wxt` stays a devDependency, but its injected context and
+entrypoint helpers also ship. Its resolved optional peer under i18n puts WXT and its
+tooling closure in the production graph; verify that path after changing either package
+with `pnpm list --prod --depth Infinity`. A WXT bump is judged as a shipped dependency.
+
+The owner accepts one upstream inventory limitation: storage 1.3.0 embeds dequal/lite
+2.0.3 without declaring it as a runtime dependency (observed in
+`node_modules/@wxt-dev/storage/dist/index.mjs`, 2026-10-26). Auditing the package graph
+cannot separately identify that embedded code. Keep the tested storage implementation
+and review its bundled code on updates; do not describe a green audit as an exhaustive
+inventory of upstream source components. `SECURITY.md` records this limit for users.
 
 ## Removing one
 

@@ -33,9 +33,9 @@ error type or `ERR_*` code (`designing-errors`); the body and the file of a test
 - Auto-imports are off, so every helper is a written import: `defineBackground` from
   `wxt/utils/define-background`, `defineContentScript` from
   `wxt/utils/define-content-script`, `defineUnlistedScript` from
-  `wxt/utils/define-unlisted-script`, `browser` from `wxt/browser`. Storage, messaging
-  and i18n are reached through `src/platform/`, never through `wxt/utils/storage` or
-  `#i18n` directly from an entrypoint.
+  `wxt/utils/define-unlisted-script`, `browser` from `@wxt-dev/browser`. Storage,
+  messaging and i18n are reached through `src/platform/`, never through
+  `@wxt-dev/storage` or `#i18n` directly from an entrypoint.
 - The file only connects a context to its zone: the service worker's logic lives in
   `src/background/`, the content script's in `src/content/`, a screen's components in
   `src/components/`, and anything pure in `src/core/`. Logic left in the entrypoint can

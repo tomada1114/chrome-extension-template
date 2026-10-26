@@ -2,7 +2,7 @@ import "../../assets/globals.css";
 
 import { type ReactElement, StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { browser } from "wxt/browser";
+import { browser } from "@wxt-dev/browser";
 
 import { CountPanel } from "../../components/count-panel";
 import { useStoredValue } from "../../components/hooks/use-stored-value";
