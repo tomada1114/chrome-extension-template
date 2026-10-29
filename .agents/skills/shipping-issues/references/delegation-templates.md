@@ -115,16 +115,18 @@ Prompt body: [agent-implementation.md](agent-implementation.md).
 
 ## Review (step 4)
 
-The standing review: one independent, **read-only** pass against the branch, in a
-context that did not write it — **`architect`** where tiers exist, otherwise followed
-inline. See [implement-and-review.md#review](implement-and-review.md#review), which also
-holds the optional Claude Code path.
+On Claude Code the review is `/code-review <medium|high> <branch> --fix`, which needs no
+brief. This brief is the **fallback** — `/code-review` cannot be launched, or Codex CLI:
+one independent, **read-only** pass against the branch, in a context that did not write
+it — **`architect`** where tiers exist, otherwise followed inline. See
+[implement-and-review.md#review](implement-and-review.md#review).
 
 Prompt body: [agent-review.md](agent-review.md).
 
 ## Review fix (step 4)
 
-Only for findings this session has already read and accepted. Zero accepted findings →
+Only for findings this session has already read and accepted — from `/code-review`
+without `--fix` in parallel mode, or from the fallback review. Zero accepted findings →
 nothing to run. One brief per branch that has any, handed to **`executor`** or followed
 inline, always inside that branch's own `{workdir}` — in parallel mode never the main
 checkout, which sits on the default branch.

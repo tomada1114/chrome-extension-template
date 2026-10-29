@@ -29,6 +29,12 @@ Events: `run-start`, `selection` (the rubric-shaped block from priority-rubric.m
 `--body-file`), `labels`, `design`, `parallel-group`, `pr-created`, `review`, `ci`,
 `merged`, `followup`, `cleanup`, `blocked`, `note`.
 
+`review` records step 4, once per branch:
+`--field issue=<n> --field status=<code-review|code-review+agent-fix|DELEGATED> --field effort=<medium|high> --field findings=<n> --field skipped=<n>`.
+`code-review` is `/code-review … --fix` applying its own findings;
+`code-review+agent-fix` is a parallel-mode review whose accepted findings an `executor`
+applied; `DELEGATED` is the fallback review.
+
 `design` records a settled — or deliberately deferred — design, from either path:
 `--field issue=<n> --field step=<2b|8b> --field mode=<inline|background> --field verdict=<DECIDED|DEFERRED>`.
 `step` tells the two inline paths apart: `2b` decided the design gating the issue being
