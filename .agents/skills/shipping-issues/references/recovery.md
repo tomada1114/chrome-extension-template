@@ -12,6 +12,7 @@ few of them.
 - [A sub-agent stopped before pushing](#a-sub-agent-stopped-before-pushing)
 - [The implementation missed or widened the spec](#the-implementation-missed-or-widened-the-spec)
 - [`--fix` and why it is serial-mode only](#--fix-and-why-it-is-serial-mode-only)
+- [`/code-review` cannot be launched](#code-review-cannot-be-launched)
 - [A review with no second context](#a-review-with-no-second-context)
 - [CI reports the previous commit](#ci-reports-the-previous-commit)
 - [CI fails](#ci-fails)
@@ -72,18 +73,26 @@ the first; a third miss means the issue itself is underspecified, so record
 
 ## `--fix` and why it is serial-mode only
 
-On Claude Code, `/code-review … --fix` applies findings to _this session's_ working tree
-— the main checkout. In serial mode that is the branch under review, which is the point.
-In parallel mode the branch is checked out in a worktree and the main checkout is
-sitting on the default branch, so `--fix` would write another branch's repairs into the
-main checkout and leave it dirty — the exact state
+`/code-review … --fix` applies findings to _this session's_ working tree — the main
+checkout. In serial mode that is the branch under review, which is the point. In
+parallel mode the branch is checked out in a worktree and the main checkout is sitting
+on the default branch, so `--fix` would write another branch's repairs into the main
+checkout and leave it dirty — the exact state
 [Stop conditions](../SKILL.md#stop-conditions) treats as someone else's work.
 
 The review itself reads `<base>...<branch>` from the shared object store and is safe
 from anywhere; only the writing half is not. So in parallel mode: review each branch
-without `--fix`, triage the whole batch, then apply each branch's accepted findings in
-that branch's own worktree with [agent-review-fix.md](agent-review-fix.md) — inline, or
-by `executor`.
+without `--fix`, triage the whole batch, then apply each branch's accepted findings
+(numbered `F1`, `F2`, …) in that branch's own worktree with
+[agent-review-fix.md](agent-review-fix.md) — one `executor` per branch, all in one
+message, or inline where the host has no sub-agents.
+
+## `/code-review` cannot be launched
+
+The host won't let this session run the slash command, or the host is Codex CLI → the
+read-only, fresh-context review in [agent-review.md](agent-review.md): `architect` where
+the host has named sub-agents, otherwise inline, triaged the same way. Never re-read
+your own diff and call that an independent review.
 
 ## A review with no second context
 

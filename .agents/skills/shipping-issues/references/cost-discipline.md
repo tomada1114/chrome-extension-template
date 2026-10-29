@@ -6,7 +6,7 @@ step, before changing a run count, or before choosing how a branch is reviewed.
 
 ## Table of Contents
 
-- [Review: who reads the diff](#review-who-reads-the-diff)
+- [Code review effort](#code-review-effort)
 - [What the startup costs](#what-the-startup-costs)
 - [Run budget](#run-budget)
 - [Tier assignment](#tier-assignment)
@@ -26,39 +26,47 @@ ever — because the answer is written back to GitHub. On a labeled backlog the 
 ranking step is `--select`, three lines, no spawn at all. Never re-read bodies to
 reconstruct a priority a label already carries; if a label looks wrong, fix the label.
 
-## Review: who reads the diff
+## Code review effort
 
 Only for [step 4](../SKILL.md#4-review-the-branch)'s local pass.
 
-**The standing review is a read-only, fresh-context diff review** from
-[agent-review.md](agent-review.md): handed to `architect` where the host has named
-sub-agents — its reads stay in that agent's context, and only the numbered findings come
-back — otherwise followed inline. An inline review of a diff this session wrote itself
-is a self-review: it still runs, and the step 10 report calls it that rather than
-presenting it as independent.
-
-On Claude Code, `/code-review` is an alternative to the brief, with the effort first and
-the branch second (`/code-review medium <branch>`):
+**On Claude Code the standing review is `/code-review <effort> <branch> --fix`**, effort
+first and the branch second (an unrecognized first token makes the whole string the
+target and silently reuses the last effort). It runs outside this session's context —
+its reads never reach here, only the findings do. Effort is `medium` or `high`, nothing
+else:
 
 | effort   | when                                                                                                                                                                       |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `medium` | **the default** for this path                                                                                                                                              |
+| `medium` | **the default, every branch**                                                                                                                                              |
 | `high`   | the change can lose or corrode data that already exists — a migration, a storage-layer write, a released public contract real consumers are on — or the user asked for one |
 
-Diff size or file count alone is not a reason to escalate — a big mechanical rename is
-exactly the shape the default handles well. Never `ultra`: it runs in the cloud, is
-billed per use, and the prompt that defines it says explicitly that a model cannot
-launch it itself.
+Diff size or file count alone is not a reason to go to `high` — a big mechanical rename
+is exactly the shape `medium` handles well. A run that did escalate says so in the final
+report, with the reason. Never `low`, `xhigh`, `max` or `ultra`; `ultra` runs in the
+cloud, is billed per use, and a model cannot launch it itself.
+
+`--fix` is serial-mode only ([why](recovery.md#--fix-and-why-it-is-serial-mode-only));
+parallel mode reviews without it and spawns one `executor` per branch from
+[agent-review-fix.md](agent-review-fix.md).
+
+**The fallback** — a host that cannot launch `/code-review`, and Codex CLI — is the
+read-only, fresh-context diff review in [agent-review.md](agent-review.md): handed to
+`architect` where the host has named sub-agents, its reads staying in that agent's
+context, otherwise followed inline. An inline review of a diff this session wrote itself
+is a self-review: it still runs, and the final report calls it that rather than
+presenting it as independent.
 
 ### Never `low`: a diff it cannot see
 
-`low` **skips test and fixture hunks**. That is wrong whenever the file under `tests/`
-_is_ the gate rather than a consumer of one — a file that lints workflow YAML, asserts
-zone or import boundaries, walks the tree for secrets or placeholders, or otherwise
-decides what "green" means — and it fails silently: a diff confined to such a file comes
-back `(none)` in a few seconds, which reads exactly like a clean review and is not one.
-The same reading applies to any review result: **a clean verdict that names what it
-skipped is not a clean verdict.** Read the sentence, not the empty findings list.
+`low` is one pass with no verify sub-pass, and it **skips test and fixture hunks**. That
+is wrong whenever the file under `tests/` _is_ the gate rather than a consumer of one —
+a file that lints workflow YAML, asserts zone or import boundaries, walks the tree for
+secrets or placeholders, or otherwise decides what "green" means — and it fails
+silently: a diff confined to such a file comes back `(none)` in a few seconds, which
+reads exactly like a clean review and is not one. The same reading applies to any review
+result: **a clean verdict that names what it skipped is not a clean verdict.** Read the
+sentence, not the empty findings list.
 
 Observed cost of getting this wrong: a gate change reviewed at `low` returned no
 findings; re-run at `medium` it returned four, all reproduced against the branch, one of
@@ -127,7 +135,7 @@ pins its own effort, which a per-spawn `model` cannot carry.
 | -------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | Priority research (step 2) | `executor`                                                                                                      |
 | Implementation (step 3)    | `executor`; `architect` when [foundational](#the-foundation-exception-architect-for-what-the-backlog-builds-on) |
-| Review (step 4)            | `architect`                                                                                                     |
+| Review (step 4)            | `/code-review` (Claude Code); `architect` for the fallback                                                      |
 | Review fix (step 4)        | `executor`                                                                                                      |
 | CI repair (step 6)         | `executor` for attempts 1–2; `architect` from attempt 3                                                         |
 | Design decision (step 8b)  | `architect`                                                                                                     |
