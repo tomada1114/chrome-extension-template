@@ -113,13 +113,12 @@ first. At most 2 patch rounds on the same tier; a third miss is `NEEDS-CLARIFICA
 ### 4. Review the branch
 
 One pass per branch, before any PR. **On Claude Code the default is
-`/code-review <medium|high> <branch> --fix`**: `medium` always, `high` on
+`/code-review <medium|high> <branch> --fix`**: `medium`, `high` on
 [its triggers](references/cost-discipline.md#code-review-effort), never `low`, `xhigh`,
 `max` or `ultra`. `--fix` is serial-only; in parallel mode one `executor` per branch
 applies the accepted `F1`… ([agent-review-fix.md](references/agent-review-fix.md)).
 Fallback (cannot launch, or Codex CLI): [agent-review.md](references/agent-review.md).
-Triage, fix, push ([details](references/implement-and-review.md#review)); await no PR
-review.
+Then triage, fix, push ([details](references/implement-and-review.md#review)).
 
 ### 5. Open the PR
 
